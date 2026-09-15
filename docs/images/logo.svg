@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="140" viewBox="0 0 560 140" role="img" aria-label="Support Coach">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF6B3D"/>
+      <stop offset="1" stop-color="#D8401F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark: a speech bubble with a rising signal inside it. -->
+  <rect x="10" y="18" width="104" height="104" rx="30" fill="url(#g)"/>
+  <path d="M42 104 L42 116 L58 104 Z" fill="url(#g)"/>
+  <rect x="38" y="76"  width="12" height="20" rx="4" fill="#fff" opacity=".95"/>
+  <rect x="56" y="62"  width="12" height="34" rx="4" fill="#fff" opacity=".95"/>
+  <rect x="74" y="42"  width="12" height="54" rx="4" fill="#fff"/>
+
+  <text x="140" y="70" font-family="'Segoe UI',Inter,system-ui,-apple-system,sans-serif"
+        font-size="44" font-weight="700" fill="#16130F">Support Coach</text>
+  <text x="142" y="102" font-family="'SF Mono',Menlo,Consolas,monospace"
+        font-size="17" letter-spacing="1.5" fill="#8A817A">REAL-TIME COACHING FOR SUPPORT AGENTS</text>
+</svg>

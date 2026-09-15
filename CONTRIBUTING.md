@@ -34,7 +34,7 @@ generated.
 ## Setting up
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/support-coach.git
+git clone https://github.com/AmanKumar-23/support-coach.git
 cd support-coach
 
 python3 -m venv .venv && source .venv/bin/activate

@@ -60,5 +60,5 @@ while the Gemini-backed analyser reads it as `negative` with frustration 85/100.
 (English) escalates `35 → 35 → 43 → 94` and fires red; Step 17 (Hinglish) stays green throughout.
 The escalation tracker was correct. The signal feeding it was not.
 
-[Unreleased]: https://github.com/YOUR-USERNAME/support-coach/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/YOUR-USERNAME/support-coach/releases/tag/v0.1.0
+[Unreleased]: https://github.com/AmanKumar-23/support-coach/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/AmanKumar-23/support-coach/releases/tag/v0.1.0

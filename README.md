@@ -4,7 +4,7 @@
 
 ### Real-time coaching for customer support agents — built for how India actually writes
 
-[![CI](https://github.com/YOUR-USERNAME/support-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/support-coach/actions/workflows/ci.yml)
+[![CI](https://github.com/AmanKumar-23/support-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/AmanKumar-23/support-coach/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-16a34a.svg)](LICENSE)
 [![Gemini](https://img.shields.io/badge/Gemini-3.5%20Flash-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
@@ -78,7 +78,7 @@ the list of help articles someone still needs to write.
 > (no credit card).
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/support-coach.git
+git clone https://github.com/AmanKumar-23/support-coach.git
 cd support-coach
 
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate

@@ -1,0 +1,72 @@
+name: Bug report
+description: Something behaves differently from what the docs say
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two requests before you start:
+
+        **Never paste your API key, a real customer transcript, or the
+        contents of `app/cases.db`.** Redact anything personal.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+      placeholder: |
+        I sent a customer message and the Suggested reply panel stayed empty.
+        I expected a draft to appear.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1. Start the server with `python3 app/server.py`
+        2. Open http://127.0.0.1:5001
+        3. Send "..."
+        4. See ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      options:
+        - Console (the agent-facing page)
+        - Dashboard (metrics, queue, cases)
+        - Notebook (Part 1 — Hugging Face models)
+        - Notebook (Part 2 — Gemini)
+        - Case store / SQLite
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Python version
+      placeholder: "3.12.5 — from `python3 --version`"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server output or browser console
+      description: Rendered as a code block, no backticks needed.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I re-ran `python3 app/build_core.py` after editing the notebook
+        - label: I have removed any API key or customer data from this report
+          required: true

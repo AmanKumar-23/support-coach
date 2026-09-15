@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest something the coach should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >
+        Describe the situation, not the solution. "An agent cannot see which
+        case to pick up next" is more useful than "add a sort dropdown".
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you build?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cost
+    attributes:
+      label: Does this add Gemini API calls per turn?
+      description: >
+        The free tier is rate limited, so anything that adds calls to the hot
+        path needs to earn them. Be honest here — it is not a blocker.
+      options:
+        - "No extra calls"
+        - "One extra call per turn"
+        - "More than one, or it depends"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What else did you consider?

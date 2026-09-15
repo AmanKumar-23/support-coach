@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel a superseded run rather than paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── The test suite runs with NO API key. ──────────────────────────────
+  # Anything that would call Gemini is driven with fixed inputs or skipped,
+  # so CI needs no secret and a fork's pull request can run it in full.
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ruff
+      # Rules are pinned in pyproject.toml, so a ruff release cannot turn the
+      # build red on its own. app/coach_core.py is excluded there: it is
+      # generated, and the notebook-sync job is what guards it.
+      - run: ruff check app/ tests/
+      #
+      # `ruff format --check` is deliberately NOT run. This codebase is
+      # hand-aligned -- comments line up with the code they annotate -- and
+      # adopting a formatter would rewrite all ten files at once. That is a
+      # real decision to make on its own, not something to smuggle in here.
+
+  # ── The check this repository actually needs. ─────────────────────────
+  # app/coach_core.py is GENERATED from the notebook by app/build_core.py.
+  # Editing the generated file by hand, or changing the notebook without
+  # rebuilding, silently makes the app and the notebook disagree. This job
+  # regenerates and fails if the result differs from what was committed.
+  notebook-sync:
+    name: Generated engine matches the notebook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate coach_core.py from the notebook
+        run: python app/build_core.py
+
+      - name: Fail if it differs from what was committed
+        run: |
+          if ! git diff --quiet -- app/coach_core.py; then
+            echo "::error::app/coach_core.py is out of date."
+            echo "Run 'python app/build_core.py' and commit the result."
+            git diff -- app/coach_core.py
+            exit 1
+          fi
+          echo "coach_core.py is in step with the notebook."
+
+  # ── Nothing secret should ever reach a commit. ────────────────────────
+  secrets:
+    name: No secrets committed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Look for API keys and live data
+        run: |
+          fail=0
+
+          # Scan only TRACKED files. Scanning the working tree would fire on
+          # a contributor's own gemini_api_key.txt, which is git-ignored and
+          # is supposed to be sitting there.
+          #
+          # Google API keys: the legacy AIza form and the newer AQ. form.
+          if git ls-files -z \
+               | xargs -0 grep -InE '(AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_-]{20,})' \
+                      -- ; then
+            echo "::error::An API key looks committed."
+            fail=1
+          fi
+
+          for f in gemini_api_key.txt app/cases.db app/cases.json; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::$f is tracked. It holds secrets or customer data."
+              fail=1
+            fi
+          done
+
+          exit $fail

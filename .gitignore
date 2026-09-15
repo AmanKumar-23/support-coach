@@ -1,0 +1,45 @@
+# ─── Secrets ────────────────────────────────────────────────────────────
+# The app reads the key from any of these. None of them may ever be
+# committed. gemini_api_key.example.txt is the safe, empty template.
+gemini_api_key.txt
+*.env
+.env
+.env.*
+!.env.example
+!gemini_api_key.example.txt
+
+# ─── Runtime data ───────────────────────────────────────────────────────
+# Real conversations, including customer phone numbers and emails.
+app/cases.db
+app/cases.db-journal
+app/cases.json
+app/cases.json.imported
+app/*.tmp
+
+# orders.json is mutable at runtime (issue_refund writes to it).
+# Ship the example; ignore the working copy.
+orders.json
+!orders.example.json
+
+# ─── Generated ──────────────────────────────────────────────────────────
+# coach_core.py is produced by app/build_core.py from the notebook.
+# It IS committed on purpose — see docs/architecture.md — so it is not
+# ignored here. CI verifies it matches the notebook.
+
+# ─── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ─── Notebook ───────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ─── Local / personal ───────────────────────────────────────────────────
+.DS_Store
+*.pdf

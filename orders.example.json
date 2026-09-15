@@ -1,0 +1,52 @@
+{
+ "_comment": "Mock back-office data. Stands in for the order system a real support tool would query. issue_refund() writes to this file.",
+ "account": {
+  "name": "Aman Kumar",
+  "email": "aman.kumar@example.com",
+  "phone": "+91 98765 43210",
+  "password_reset_sent_at": null
+ },
+ "orders": [
+  {
+   "order_id": "OD-4471",
+   "item": "Prepaid recharge 499",
+   "amount": 499,
+   "currency": "INR",
+   "placed_on": "2026-08-30",
+   "status": "failed",
+   "note": "Payment was captured but the operator declined the recharge"
+  },
+  {
+   "order_id": "OD-4468",
+   "item": "Phone case (silicone, black)",
+   "amount": 349,
+   "currency": "INR",
+   "placed_on": "2026-08-27",
+   "status": "in transit",
+   "courier": "BlueDart",
+   "tracking_number": "BD88213004",
+   "expected_on": "2026-09-03"
+  },
+  {
+   "order_id": "OD-4402",
+   "item": "Bluetooth earbuds",
+   "amount": 1899,
+   "currency": "INR",
+   "placed_on": "2026-08-12",
+   "status": "delivered",
+   "delivered_on": "2026-08-16"
+  }
+ ],
+ "refunds": [
+  {
+   "refund_id": "RF-9012",
+   "order_id": "OD-4471",
+   "amount": 499,
+   "currency": "INR",
+   "status": "processing",
+   "initiated_on": "2026-08-31",
+   "expected_by": "2026-09-05",
+   "method": "UPI"
+  }
+ ]
+}

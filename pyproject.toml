@@ -1,0 +1,51 @@
+# Tooling configuration.
+#
+# The lint rules are pinned here on purpose. Without a config, ruff lints
+# against whatever its current default set happens to be, so a ruff release
+# can turn a green build red without anybody changing a line of code.
+
+[project]
+name = "support-coach"
+version = "0.1.0"
+description = "Real-time coaching for customer support agents, built for how India actually writes"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["app/coach_core.py"]   # generated; see the note below
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle
+    "F",      # pyflakes
+    "I",      # import sorting
+    "B",      # bugbear
+    "UP",     # pyupgrade
+    "SIM",    # simplify
+    "RUF",
+]
+ignore = [
+    # Broad excepts are deliberate in this codebase. Every one of them is a
+    # resilience path -- a failed lookup or a model error must never stop the
+    # customer getting a reply -- and each carries a comment saying so.
+    "BLE001",
+    # datetime.now() without a timezone. The four uses are display stamps (a
+    # refund date, a reset timestamp, an export filename), never compared
+    # against timezone-aware values, so none of them can produce the
+    # naive/aware TypeError this rule exists to prevent.
+    "DTZ005",
+    # Long lines are mostly prose in comments, which is where the reasoning
+    # for the measured thresholds lives. Splitting them reads worse.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately build odd objects and stub out internals.
+"tests/*" = ["S101", "SIM117"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

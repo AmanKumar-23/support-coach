@@ -1,0 +1,1337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Coach — Dashboard</title>
+<style>
+:root{
+  --bg:#F5F4F1; --surface:#FFFFFF; --surface-2:#FAFAF8; --surface-3:#F2F1ED;
+  --ink:#16181C; --ink-2:#5A6069; --ink-3:#8B929B;
+  --line:#EAE8E3; --line-2:#E0DDD6;
+  --brand:#EF4E2B; --brand-600:#D8401F; --brand-bg:#FEF0EC;
+  --green:#0B8A4B; --green-bg:#E7F5EC;
+  --amber:#C97A00; --amber-bg:#FDF2E0;
+  --red:#D6382F;   --red-bg:#FCEDEB;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  --sh-1:0 1px 2px rgba(16,24,40,.05);
+  --sh-2:0 1px 3px rgba(16,24,40,.06), 0 8px 24px -6px rgba(16,24,40,.10);
+  --r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+  line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ---------- app bar ---------- */
+.appbar{background:var(--surface);border-bottom:1px solid var(--line);
+  padding:11px 24px;display:flex;align-items:center;gap:16px;box-shadow:var(--sh-1);
+  position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  color:#fff;font-weight:800;font-size:14px;letter-spacing:-.02em;
+  background:linear-gradient(140deg,#FF6B3D,var(--brand) 55%,#D8401F);
+  box-shadow:0 3px 10px rgba(239,78,43,.34)}
+.bname{font-size:15.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.btag{font-size:10.5px;color:var(--ink-3);font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;margin-top:1px}
+.grow{flex:1}
+.nav{display:flex;gap:4px;background:var(--surface-3);border:1px solid var(--line);
+  border-radius:11px;padding:3px}
+.nav a{padding:6px 15px;border-radius:8px;text-decoration:none;font-size:12.5px;
+  font-weight:700;color:var(--ink-3);transition:.15s}
+.nav a:hover{color:var(--ink)}
+.nav a.on{background:var(--surface);color:var(--brand);box-shadow:var(--sh-1)}
+.btn{height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink-2);font-family:var(--sans);font-size:12.5px;
+  font-weight:600;cursor:pointer;transition:.15s;box-shadow:var(--sh-1)}
+.btn:hover{background:var(--surface-2);color:var(--ink)}
+.btn:active{transform:scale(.97)}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1240px;margin:0 auto;padding:24px 24px 56px}
+.slab{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin:26px 0 12px}
+.slab:first-child{margin-top:0}
+
+/* ---------- KPI tiles ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px 20px;box-shadow:var(--sh-2);position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:0 auto 0 0;width:4px}
+.kpi.total::after{background:var(--brand)}
+.kpi.done::after{background:var(--green)}
+.kpi.wait::after{background:var(--amber)}
+.kpi.risk::after{background:var(--red)}
+.kpi.auto::after{background:var(--brand)}
+.kpi.auto .ico{background:var(--brand-bg)}
+.kpi.auto .v{color:var(--brand-600)}
+.kpi .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.kpi .k{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3)}
+.kpi .ico{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  font-size:16px;background:var(--surface-3)}
+.kpi.total .ico{background:var(--brand-bg)}
+.kpi.done .ico{background:var(--green-bg)}
+.kpi.wait .ico{background:var(--amber-bg)}
+.kpi.risk .ico{background:var(--red-bg)}
+.kpi .v{font-size:38px;font-weight:800;letter-spacing:-.04em;line-height:1.05;
+  margin-top:12px}
+.kpi.done .v{color:var(--green)} .kpi.wait .v{color:var(--amber)}
+.kpi.risk .v{color:var(--red)}
+.kpi .sub{font-size:12px;color:var(--ink-3);margin-top:5px}
+
+/* ---------- panels ---------- */
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
+@media (max-width:960px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh-2);overflow:hidden}
+.phead{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.ptitle{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-2)}
+.pmeta{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.pbody{padding:18px}
+
+/* ---------- resolution progress ---------- */
+.prog{height:34px;border-radius:12px;background:var(--surface-3);overflow:hidden;
+  display:flex;border:1px solid var(--line)}
+.prog span{display:grid;place-items:center;font-size:11.5px;font-weight:700;
+  color:#fff;transition:width .7s cubic-bezier(.2,.85,.25,1);white-space:nowrap}
+.prog .auto{background:linear-gradient(90deg,#FF7A52,var(--brand))}
+.prog .done{background:linear-gradient(90deg,#22A868,var(--green))}
+.prog .wait{background:linear-gradient(90deg,#E3A63A,var(--amber))}
+.legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.legend div{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+.legend i{width:10px;height:10px;border-radius:3px;display:block}
+.legend .g{background:var(--green)} .legend .a{background:var(--amber)}
+.legend .b{background:var(--brand)}
+
+/* ---------- breakdown bars ---------- */
+.brow{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.brow:last-child{margin-bottom:0}
+.brow .k{width:74px;flex:0 0 74px;font-size:12.5px;font-weight:600;color:var(--ink-2);
+  text-transform:capitalize}
+.bar{flex:1;height:9px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.fill{height:100%;border-radius:99px;width:0;
+  transition:width .7s cubic-bezier(.2,.85,.25,1)}
+.fill.low{background:linear-gradient(90deg,#4FBF87,var(--green))}
+.fill.medium{background:linear-gradient(90deg,#EFB44E,var(--amber))}
+.fill.high{background:linear-gradient(90deg,#F0705F,var(--red))}
+.fill.positive{background:linear-gradient(90deg,#4FBF87,var(--green))}
+.fill.neutral{background:linear-gradient(90deg,#EFB44E,var(--amber))}
+.fill.negative{background:linear-gradient(90deg,#F0705F,var(--red))}
+.brow .n{width:34px;text-align:right;font-family:var(--mono);font-size:12px;
+  font-weight:600;color:var(--ink-2)}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);padding:0 14px 10px;
+  border-bottom:1px solid var(--line)}
+td{padding:13px 14px;border-bottom:1px solid var(--line);font-size:13px;
+  vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr{transition:.12s}
+tbody tr:hover{background:var(--surface-2)}
+.cid{font-family:var(--mono);font-size:12px;font-weight:600}
+.msg{color:var(--ink-2);max-width:360px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;
+  border-radius:999px;font-size:11.5px;font-weight:700;text-transform:capitalize}
+.pill.resolved,.pill.low,.pill.positive{background:var(--green-bg);color:var(--green)}
+.pill.auto_resolved{background:var(--brand-bg);color:var(--brand-600)}
+.pill.pending,.pill.medium,.pill.neutral{background:var(--amber-bg);color:var(--amber)}
+.pill.high,.pill.negative{background:var(--red-bg);color:var(--red)}
+.pill.unknown,.pill.none{background:var(--surface-3);color:var(--ink-3)}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.tag{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--brand);background:var(--brand-bg);padding:2px 7px;border-radius:5px;
+  margin-left:7px}
+
+/* ---------- FAQ list ---------- */
+.faq{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--surface-2);text-decoration:none;
+  color:inherit;transition:.15s;margin-bottom:9px}
+.faq:last-child{margin-bottom:0}
+.faq:hover{border-color:var(--brand);background:var(--brand-bg);
+  transform:translateX(2px)}
+.faq .em{width:36px;height:36px;flex:0 0 36px;border-radius:11px;display:grid;
+  place-items:center;font-size:17px;background:var(--surface);
+  border:1px solid var(--line)}
+.faq .txt{flex:1;min-width:0}
+.faq .lbl{font-size:13px;font-weight:650;letter-spacing:-.01em}
+.faq .sample{font-size:11.5px;color:var(--ink-3);margin-top:2px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.faq .cnt{flex:0 0 auto;font-family:var(--mono);font-size:12px;font-weight:700;
+  color:var(--ink-2);background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:3px 11px}
+.faq:hover .cnt{border-color:var(--brand);color:var(--brand)}
+.faq .go{color:var(--ink-3);font-size:15px}
+.faq:hover .go{color:var(--brand)}
+
+/* ---------- work queue ---------- */
+.qrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--surface-2);margin-bottom:9px;
+  text-decoration:none;color:inherit;transition:.15s}
+.qrow:last-child{margin-bottom:0}
+.qrow:hover{border-color:var(--brand);background:var(--brand-bg);transform:translateX(2px)}
+.qrow .rank{flex:0 0 auto;width:26px;height:26px;border-radius:8px;display:grid;
+  place-items:center;font-family:var(--mono);font-size:12px;font-weight:700;
+  background:var(--surface);border:1px solid var(--line);color:var(--ink-3)}
+.qrow:first-child .rank{background:var(--brand);border-color:var(--brand);color:#fff}
+.qrow .who{flex:1;min-width:0}
+.qrow .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qrow .cid{font-family:var(--mono);font-size:12px;font-weight:600}
+.qrow .txt{font-size:12.5px;color:var(--ink-3);margin-top:3px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.qrow .age{flex:0 0 auto;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  text-align:right}
+.qrow .go{flex:0 0 auto;color:var(--ink-3);font-size:16px}
+.qrow:hover .go{color:var(--brand)}
+
+/* ---------- SLA ---------- */
+.pill.met,.pill.on_track{background:var(--green-bg);color:var(--green)}
+.pill.at_risk{background:var(--amber-bg);color:var(--amber)}
+.pill.breached{background:var(--red-bg);color:var(--red)}
+.pill.unknown{background:var(--surface-3);color:var(--ink-3)}
+.sla{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--surface-2);margin-bottom:9px}
+.sla:last-child{margin-bottom:0}
+.sla.over{border-color:#F3C9C4;background:#FEF6F5}
+.sla .clock{flex:0 0 auto;min-width:74px;text-align:center;padding:6px 9px;
+  border-radius:10px;font-family:var(--mono);font-size:12.5px;font-weight:700;
+  background:var(--amber-bg);color:var(--amber);border:1px solid #F5E2C2}
+.sla.over .clock{background:var(--red-bg);color:var(--red);border-color:#F3C9C4}
+.sla .who{flex:1;min-width:0}
+.sla .cid{font-family:var(--mono);font-size:12px;font-weight:600}
+.sla .txt{font-size:12.5px;color:var(--ink-3);margin-top:3px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.slafoot{margin-top:12px;font-size:12px;color:var(--ink-3)}
+
+/* ---------- agent performance ---------- */
+.trends{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px;
+  margin-bottom:18px}
+.trend{border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  background:var(--surface-2)}
+.trend .k{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3)}
+.trend .v{font-size:23px;font-weight:800;letter-spacing:-.03em;margin-top:6px}
+.trend .d{font-size:11.5px;font-weight:700;margin-top:3px}
+.trend .d.improving{color:var(--green)}
+.trend .d.declining{color:var(--red)}
+.trend .d.steady{color:var(--ink-3)}
+.perflegend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.perflegend div{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2)}
+.perflegend i{width:14px;height:3px;border-radius:2px;display:block}
+.theme{display:flex;align-items:flex-start;gap:12px;padding:11px 13px;border-radius:11px;
+  border:1px solid var(--line);background:var(--surface-2);margin-bottom:8px}
+.theme:last-child{margin-bottom:0}
+.theme .n{flex:0 0 auto;min-width:28px;height:26px;padding:0 8px;border-radius:8px;
+  display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:700;
+  background:var(--brand-bg);color:var(--brand-600);border:1px solid #FBDDD4}
+.theme .b{flex:1;min-width:0}
+.theme .lb{font-size:13px;font-weight:650}
+.theme .ex{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.perfchart{display:block;width:100%;min-width:460px;height:auto}
+.perfchart text{font-family:var(--sans);fill:var(--ink-3);font-size:10px}
+.perfchart .grid{stroke:var(--line);stroke-width:1}
+
+/* ---------- knowledge gaps ---------- */
+.gap{display:flex;align-items:flex-start;gap:13px;padding:13px 14px;border-radius:12px;
+  border:1px solid var(--line);background:var(--surface-2);margin-bottom:9px}
+.gap:last-child{margin-bottom:0}
+.gap .n{flex:0 0 auto;min-width:30px;height:30px;padding:0 9px;border-radius:9px;
+  display:grid;place-items:center;font-family:var(--mono);font-size:12.5px;
+  font-weight:700;background:var(--brand-bg);color:var(--brand-600);
+  border:1px solid #FBDDD4}
+.gap .body{flex:1;min-width:0}
+.gap .q{font-size:13.5px;line-height:1.55;color:var(--ink)}
+.gap .meta{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+.gap .meta b{font-family:var(--mono);font-weight:600;color:var(--ink-2)}
+.gapnote{font-size:12.5px;color:var(--ink-3);margin-bottom:14px;line-height:1.6}
+.allgood{display:flex;align-items:center;gap:13px;padding:16px 4px}
+.allgood .ico{width:42px;height:42px;flex:0 0 42px;border-radius:13px;
+  background:var(--green-bg);display:grid;place-items:center;font-size:19px}
+.allgood b{display:block;font-size:13.5px;margin-bottom:2px}
+.allgood span{font-size:12.5px;color:var(--ink-3)}
+
+/* ---------- issues over time ---------- */
+.chartwrap{overflow-x:auto}
+.chart{display:block;width:100%;min-width:520px;height:auto}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .zero{stroke:var(--line-2);stroke-width:1}
+.chart text{font-family:var(--sans);fill:var(--ink-3)}
+.chart .ylab{font-size:10px}
+.chart .xlab{font-size:10px}
+.chart .peak{font-size:10px;font-weight:700;fill:var(--ink-2)}
+.chart .bres{fill:var(--green)}
+.chart .bpen{fill:var(--amber)}
+.chart .hit{fill:transparent}
+.chart .hit:hover ~ .bres,.chart .hit:hover ~ .bpen{opacity:.75}
+
+/* ---------- filter toolbar ---------- */
+.toolbar{padding:14px 18px;border-bottom:1px solid var(--line);
+  background:var(--surface-2);display:flex;flex-direction:column;gap:12px}
+.tbrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search{flex:1;min-width:220px;position:relative}
+.search input{width:100%;height:36px;padding:0 34px 0 34px;border-radius:10px;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--ink);
+  font-family:var(--sans);font-size:13px;outline:none;transition:.15s}
+.search input:focus{border-color:#F0A88F;box-shadow:0 0 0 3.5px rgba(239,78,43,.11)}
+.search input::placeholder{color:var(--ink-3)}
+.search .mag{position:absolute;left:11px;top:9px;font-size:14px;opacity:.5}
+.search .clr{position:absolute;right:8px;top:7px;width:22px;height:22px;border:0;
+  border-radius:6px;background:var(--surface-3);color:var(--ink-3);cursor:pointer;
+  font-size:13px;line-height:1}
+.search .clr:hover{background:var(--line);color:var(--ink)}
+.fgroup{display:flex;align-items:center;gap:7px}
+.flabel{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3)}
+.chips{display:inline-flex;gap:4px;background:var(--surface-3);border:1px solid var(--line);
+  border-radius:9px;padding:3px}
+.chips button{height:26px;padding:0 11px;border:0;border-radius:6px;background:transparent;
+  color:var(--ink-3);font-size:11.5px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:.15s;text-transform:capitalize}
+.chips button:hover{color:var(--ink)}
+.chips button[aria-pressed="true"]{background:var(--surface);color:var(--brand);
+  box-shadow:var(--sh-1)}
+
+/* ---------- case detail drawer ---------- */
+tbody tr{cursor:pointer}
+.scrim{position:fixed;inset:0;background:rgba(22,24,28,.34);z-index:40;
+  animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0}}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(620px,94vw);z-index:50;
+  background:var(--surface);border-left:1px solid var(--line);
+  box-shadow:-18px 0 46px -12px rgba(16,24,40,.24);
+  display:flex;flex-direction:column;animation:slide .24s cubic-bezier(.2,.9,.3,1);
+}
+@keyframes slide{from{transform:translateX(24px);opacity:.4}}
+.dhead{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:12px;flex:0 0 auto}
+.dcase{font-family:var(--mono);font-size:16px;font-weight:700;letter-spacing:-.01em}
+.dwhen{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.dbody{flex:1;overflow-y:auto;padding:18px 20px 30px}
+.redact{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--line);background:var(--surface-2);margin-bottom:7px}
+.redact:last-child{margin-bottom:0}
+.redact .kind{font-size:9.5px;font-weight:800;letter-spacing:.08em;padding:3px 8px;
+  border-radius:5px;background:var(--brand-bg);color:var(--brand-600)}
+.redact .tok{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--ink)}
+.redact .msk{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  margin-left:auto}
+.dbody::-webkit-scrollbar{width:10px}
+.dbody::-webkit-scrollbar-thumb{background:#DFDCD4;border-radius:10px;
+  border:3px solid var(--surface)}
+.dsec{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-3);margin:22px 0 11px}
+.dsec:first-child{margin-top:0}
+.chipset{display:flex;flex-wrap:wrap;gap:8px}
+.dcard{border:1px solid var(--line);border-radius:13px;background:var(--surface-2);
+  padding:14px 15px;font-size:13px;line-height:1.65}
+
+/* transcript */
+.dturn{max-width:86%;margin-bottom:11px}
+.dturn.agent{margin-left:auto}
+.dwho{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:4px}
+.dturn.agent .dwho{text-align:right}
+.dbub{padding:10px 13px;border-radius:13px;font-size:13px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word}
+.dturn.customer .dbub{background:var(--surface-2);border:1px solid var(--line);
+  border-bottom-left-radius:4px}
+.dturn.agent .dbub{background:linear-gradient(160deg,#FF6B3D,var(--brand));
+  color:#fff;border-bottom-right-radius:4px}
+
+/* timeline */
+.step{position:relative;padding:0 0 18px 28px}
+.step:last-child{padding-bottom:0}
+.step::before{content:"";position:absolute;left:7px;top:18px;bottom:-2px;width:2px;
+  background:var(--line-2);border-radius:2px}
+.step:last-child::before{display:none}
+.step .node{position:absolute;left:0;top:2px;width:16px;height:16px;border-radius:50%;
+  background:var(--surface);border:2.5px solid var(--line-2);display:grid;
+  place-items:center}
+.step .node::after{content:"";width:5px;height:5px;border-radius:50%;
+  background:var(--line-2)}
+.step.low .node{border-color:var(--green)}   .step.low .node::after{background:var(--green)}
+.step.medium .node{border-color:var(--amber)}.step.medium .node::after{background:var(--amber)}
+.step.high .node{border-color:var(--red)}    .step.high .node::after{background:var(--red)}
+.step .tl{font-size:10.5px;font-weight:700;color:var(--ink-3);letter-spacing:.05em;
+  text-transform:uppercase}
+.step .tm{font-size:12.5px;color:var(--ink-2);margin-top:2px;line-height:1.5}
+.step .tb{margin-top:5px}
+
+.empty{padding:52px 24px;text-align:center;color:var(--ink-3)}
+.empty .ico{width:56px;height:56px;border-radius:18px;background:var(--brand-bg);
+  display:grid;place-items:center;font-size:25px;margin:0 auto 14px}
+.empty h3{font-size:15.5px;font-weight:700;color:var(--ink);margin-bottom:7px}
+.empty p{font-size:13px;line-height:1.7;max-width:400px;margin:0 auto}
+.empty a{color:var(--brand);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="brand">
+    <div class="logo">SC</div>
+    <div>
+      <div class="bname">Support Coach</div>
+      <div class="btag">Dashboard</div>
+    </div>
+  </div>
+  <div class="grow"></div>
+  <div class="nav">
+    <a href="/">Console</a>
+    <a href="/dashboard" class="on">Dashboard</a>
+  </div>
+  <button class="btn" id="refreshBtn">Refresh</button>
+</div>
+
+<div class="wrap">
+
+  <div class="slab">Work queue</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Pick up next</span>
+      <span class="pmeta" id="queueMeta"></span>
+    </div>
+    <div class="pbody">
+      <p style="font-size:12.5px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+        Open cases ranked by escalation risk, then by how long they have been
+        waiting — the oldest of the riskiest sits at the top. Click one to open
+        it in the console and carry on with it.
+      </p>
+      <div id="queueList"></div>
+    </div>
+  </div>
+
+  <div class="slab">Overview</div>
+  <div class="kpis">
+    <div class="kpi total">
+      <div class="top"><div class="k">Total issues</div><div class="ico">📋</div></div>
+      <div class="v" id="kTotal">0</div>
+      <div class="sub" id="sTotal">No conversations yet</div>
+    </div>
+    <div class="kpi done">
+      <div class="top"><div class="k">Resolved</div><div class="ico">✅</div></div>
+      <div class="v" id="kResolved">0</div>
+      <div class="sub" id="sResolved">—</div>
+    </div>
+    <div class="kpi wait">
+      <div class="top"><div class="k">Pending</div><div class="ico">⏳</div></div>
+      <div class="v" id="kPending">0</div>
+      <div class="sub" id="sPending">—</div>
+    </div>
+    <div class="kpi auto">
+      <div class="top"><div class="k">Deflected</div><div class="ico">🤖</div></div>
+      <div class="v" id="kAuto">0</div>
+      <div class="sub" id="sAuto">Answered with no agent</div>
+    </div>
+    <div class="kpi risk">
+      <div class="top"><div class="k">Pending · high risk</div><div class="ico">🚨</div></div>
+      <div class="v" id="kRisk">0</div>
+      <div class="sub" id="sRisk">Need attention first</div>
+    </div>
+  </div>
+
+  <div class="slab">Needs attention</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Breaching soon</span>
+      <span class="pmeta" id="slaMeta"></span>
+    </div>
+    <div class="pbody">
+      <p style="font-size:12.5px;color:var(--ink-3);margin-bottom:14px;line-height:1.6">
+        Open cases still waiting for a first reply, worst first. The target
+        depends on how risky the conversation looks —
+        <b>high 15 min</b>, <b>medium 1 hour</b>, <b>low 4 hours</b>.
+      </p>
+      <div id="slaList"></div>
+    </div>
+  </div>
+
+  <div class="slab">Breakdown</div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="phead">
+        <span class="ptitle">Resolution progress</span>
+        <span class="pmeta" id="rateMeta"></span>
+      </div>
+      <div class="pbody">
+        <div class="prog">
+          <span class="auto" id="pgAuto" style="width:0"></span>
+          <span class="done" id="pgDone" style="width:0"></span>
+          <span class="wait" id="pgWait" style="width:0"></span>
+        </div>
+        <div class="legend">
+          <div><i class="b"></i><span id="lgAuto">0 deflected</span></div>
+          <div><i class="g"></i><span id="lgDone">0 resolved</span></div>
+          <div><i class="a"></i><span id="lgWait">0 pending</span></div>
+        </div>
+        <div style="margin-top:20px" id="riskBars"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="phead"><span class="ptitle">Customer sentiment</span></div>
+      <div class="pbody"><div id="sentBars"></div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+                    display:flex;gap:26px;flex-wrap:wrap">
+          <div><div class="k" style="font-size:10.5px;font-weight:700;
+               letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">
+               Avg turns</div>
+            <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;
+                 margin-top:5px" id="avgTurns">0</div></div>
+          <div><div class="k" style="font-size:10.5px;font-weight:700;
+               letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)">
+               API calls</div>
+            <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;
+                 margin-top:5px" id="totalCalls">0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slab">Issues over time</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Cases opened per day</span>
+      <span class="pmeta" id="chartMeta"></span>
+    </div>
+    <div class="pbody">
+      <div class="chartwrap"><svg class="chart" id="chart"
+           viewBox="0 0 720 210" role="img" aria-label="Cases opened per day"></svg></div>
+      <div class="legend" style="margin-top:6px">
+        <div><i class="g"></i><span>Resolved</span></div>
+        <div><i class="a"></i><span>Pending</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slab">Agent performance</div>
+  <div class="grid2">
+    <div class="panel">
+      <div class="phead">
+        <span class="ptitle">Scores over time</span>
+        <span class="pmeta" id="perfMeta"></span>
+      </div>
+      <div class="pbody">
+        <div id="trendCards" class="trends"></div>
+        <div style="overflow-x:auto"><svg class="perfchart" id="perfChart"
+             viewBox="0 0 620 200" role="img"
+             aria-label="Average tone, empathy and clarity over time"></svg></div>
+        <div class="perflegend">
+          <div><i style="background:#5B8DEF"></i><span>Tone</span></div>
+          <div><i style="background:#0B8A4B"></i><span>Empathy</span></div>
+          <div><i style="background:#C97A00"></i><span>Clarity</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="phead">
+        <span class="ptitle">What the coach keeps saying</span>
+        <span class="pmeta" id="themeMeta"></span>
+      </div>
+      <div class="pbody"><div id="themeList"></div></div>
+    </div>
+  </div>
+
+  <div class="slab">Suggestion quality</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Acceptance rate</span>
+      <span class="pmeta" id="sugMeta"></span>
+    </div>
+    <div class="pbody">
+      <p style="font-size:12.5px;color:var(--ink-3);margin-bottom:16px;line-height:1.6">
+        How often an agent marked our suggested reply useful, split by whether
+        we had a help article to ground it in. If grounded suggestions do
+        better, the knowledge base is earning its keep.
+      </p>
+      <div id="sugQuality"></div>
+    </div>
+  </div>
+
+  <div class="slab">Frequently asked questions</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Common issues</span>
+      <span class="pmeta" id="faqMeta"></span>
+    </div>
+    <div class="pbody">
+      <p style="font-size:12.5px;color:var(--ink-3);margin-bottom:14px">
+        The count is how many saved cases mention that topic. Click one to open
+        the console with the question already filled in — no typing.
+      </p>
+      <div id="faqList"></div>
+    </div>
+  </div>
+
+  <div class="slab">Knowledge gaps</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Questions we cannot answer</span>
+      <span class="pmeta" id="gapMeta"></span>
+    </div>
+    <div class="pbody">
+      <p class="gapnote">
+        A customer asked this and nothing in the knowledge base or the FAQ list
+        could answer it. Each line is a help article somebody still needs to
+        write — the number is how many times it has come up.
+      </p>
+      <div id="gapList"></div>
+    </div>
+  </div>
+
+  <div class="slab">Recent issues</div>
+  <div class="panel">
+    <div class="phead">
+      <span class="ptitle">Cases</span>
+      <span class="pmeta" id="caseMeta"></span>
+    </div>
+
+    <div class="toolbar">
+      <div class="tbrow">
+        <label class="search">
+          <span class="mag">🔍</span>
+          <input id="q" type="search" autocomplete="off"
+                 placeholder="Search case ID, key issue, or anything said…">
+          <button class="clr" id="qClear" hidden title="Clear search">×</button>
+        </label>
+        <button class="btn" id="csvBtn">Export CSV</button>
+        <button class="btn" id="jsonBtn" title="The same shape cases.json always had">JSON</button>
+      </div>
+      <div class="tbrow">
+        <span class="fgroup"><span class="flabel">Status</span>
+          <span class="chips" id="fStatus"></span></span>
+        <span class="fgroup"><span class="flabel">Risk</span>
+          <span class="chips" id="fRisk"></span></span>
+        <span class="fgroup"><span class="flabel">Sentiment</span>
+          <span class="chips" id="fSentiment"></span></span>
+        <span class="grow"></span>
+        <button class="btn" id="clearAll" hidden>Clear filters</button>
+      </div>
+    </div>
+
+    <div id="tableWrap"></div>
+  </div>
+
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden role="dialog" aria-modal="true"
+       aria-labelledby="dTitle">
+  <div class="dhead">
+    <div style="flex:1">
+      <div class="dcase" id="dTitle">—</div>
+      <div class="dwhen" id="dWhen"></div>
+    </div>
+    <span class="pill unknown" id="dStatus">—</span>
+    <button class="btn" id="dClose">Close</button>
+  </div>
+  <div class="dbody" id="dBody"></div>
+</aside>
+
+<script>
+const $ = id => document.getElementById(id);
+const band = v => ["low","medium","high"].includes(v) ? v : "unknown";
+const tone = v => ["positive","neutral","negative"].includes(v) ? v : "unknown";
+
+function bars(target, counts, order){
+  const max = Math.max(1, ...Object.values(counts));
+  $(target).innerHTML = order.map(key => {
+    const n = counts[key] || 0;
+    return `<div class="brow">
+      <div class="k">${key}</div>
+      <div class="bar"><div class="fill ${key}" style="width:${(n/max)*100}%"></div></div>
+      <div class="n">${n}</div>
+    </div>`;
+  }).join("");
+}
+
+function shortDuration(seconds){
+  if(seconds === null || seconds === undefined) return "—";
+  const s = Math.abs(Math.round(seconds));
+  if(s < 60)    return s + "s";
+  if(s < 3600)  return Math.round(s/60) + "m";
+  if(s < 86400) return Math.floor(s/3600) + "h " + Math.round((s%3600)/60) + "m";
+  return Math.round(s/86400) + "d";
+}
+
+const SLA_WORD = {met:"met", breached:"breached", at_risk:"at risk",
+                  on_track:"on track", unknown:"—"};
+
+function slaLabel(sla){
+  if(!sla || sla.status === "unknown") return "—";
+  if(sla.status === "met")      return "met " + shortDuration(sla.first_response_seconds);
+  if(sla.status === "breached") return "over " + shortDuration(Math.abs(sla.remaining_seconds));
+  return shortDuration(sla.remaining_seconds) + " left";
+}
+
+function slaTitle(sla){
+  if(!sla || sla.status === "unknown") return "No response time recorded";
+  const parts = [`target ${sla.target_minutes} min`, SLA_WORD[sla.status]];
+  if(sla.first_response_seconds !== null)
+    parts.push("first reply in " + shortDuration(sla.first_response_seconds));
+  if(sla.resolution_seconds !== null)
+    parts.push("closed in " + shortDuration(sla.resolution_seconds));
+  return parts.join(" · ");
+}
+
+function when(iso){
+  if(!iso) return "—";
+  const d = new Date(iso), now = new Date();
+  const mins = Math.round((now - d) / 60000);
+  if(mins < 1) return "just now";
+  if(mins < 60) return mins + "m ago";
+  if(mins < 1440) return Math.round(mins/60) + "h ago";
+  return d.toLocaleDateString();
+}
+
+async function load(){
+  const s = await (await fetch("/api/stats")).json();
+
+  $("kTotal").textContent    = s.total;
+  $("kResolved").textContent = s.resolved;
+  $("kPending").textContent  = s.pending;
+  $("kRisk").textContent     = s.high_risk_pending;
+  $("kAuto").textContent     = s.deflected;
+  $("sAuto").textContent     = s.total
+    ? `${s.deflection_rate}% deflection rate` : "Answered with no agent";
+
+  $("sTotal").textContent    = s.total ? `${s.avg_turns} turns on average`
+                                       : "No conversations yet";
+  $("sResolved").textContent = `${s.resolution_rate}% of all issues`;
+  // "Nothing open right now" next to "Pending 1" reads as a contradiction.
+  // After a restart the pending case is on disk but not open in memory, so
+  // describe the queue, not the in-memory session.
+  $("sPending").textContent = s.open_case ? `${s.open_case} open in the console`
+                            : s.pending   ? "Waiting to be resolved"
+                                          : "All caught up";
+  $("sRisk").textContent     = s.high_risk_pending
+    ? "Handle these first" : "Nothing urgent waiting";
+
+  const pct = n => s.total ? (n / s.total) * 100 : 0;
+  const auto = pct(s.deflected), done = pct(s.resolved), wait = pct(s.pending);
+  $("pgAuto").style.width = auto + "%";
+  $("pgDone").style.width = done + "%";
+  $("pgWait").style.width = wait + "%";
+  $("pgAuto").textContent = s.deflected > 0 && auto > 12 ? s.deflected : "";
+  $("pgDone").textContent = s.resolved  > 0 && done > 12 ? s.resolved : "";
+  $("pgWait").textContent = s.pending   > 0 && wait > 12 ? s.pending : "";
+  $("lgAuto").textContent = `${s.deflected} deflected`;
+  $("lgDone").textContent = `${s.resolved} resolved`;
+  $("lgWait").textContent = `${s.pending} pending`;
+  $("rateMeta").textContent = s.total ? `${s.resolution_rate}% closed` : "";
+
+  // ---- work queue ----
+  const wq = s.work_queue || {queue: [], total: 0};
+  $("queueMeta").textContent = wq.total
+    ? `${wq.queue.length} of ${wq.total} open` : "";
+
+  if(!wq.queue.length){
+    $("queueList").innerHTML = `<div class="allgood"><div class="ico">🎉</div>
+      <div><b>Queue is empty</b>
+      <span>Every case is closed. Nothing waiting for an agent.</span></div></div>`;
+  } else {
+    $("queueList").innerHTML = wq.queue.map((row,i) => `
+      <a class="qrow" href="/?case=${encodeURIComponent(row.id)}"
+         title="Open ${row.id} in the console">
+        <span class="rank">${i+1}</span>
+        <span class="who">
+          <span class="top">
+            <span class="cid">${row.id}</span>
+            <span class="pill ${band(row.escalation_risk)}"><i></i>${
+              row.escalation_risk || "—"}</span>
+            ${row.awaiting_reply
+              ? `<span class="pill ${row.sla.status}">${slaLabel(row.sla)}</span>`
+              : ""}
+          </span>
+          <span class="txt" data-q="${i}"></span>
+        </span>
+        <span class="age">${shortDuration(row.age_seconds)}<br>waiting</span>
+        <span class="go">›</span>
+      </a>`).join("");
+    wq.queue.forEach((row,i) => {
+      $("queueList").querySelector(`[data-q="${i}"]`).textContent =
+        row.first_message || row.key_issue || "";
+    });
+  }
+
+  // ---- breaching soon ----
+  const sla = s.sla || {counts:{}, breaching:[], breaching_total:0};
+  $("slaMeta").textContent = sla.breaching_total
+    ? `${sla.breaching_total} waiting · ${sla.on_time_rate}% answered on time`
+    : (sla.counts.met ? `${sla.on_time_rate}% answered on time` : "");
+
+  if(!sla.breaching.length){
+    $("slaList").innerHTML = `<div class="allgood"><div class="ico">✅</div>
+      <div><b>Nothing breaching</b>
+      <span>Every open case is comfortably inside its first-reply target.</span>
+      </div></div>`;
+  } else {
+    $("slaList").innerHTML = sla.breaching.map((row,i) => {
+      const over = row.sla.status === "breached";
+      return `<div class="sla ${over ? "over" : ""}">
+        <span class="clock">${over ? "+" : ""}${
+          shortDuration(Math.abs(row.sla.remaining_seconds))}${over ? " over" : ""}</span>
+        <span class="who">
+          <span class="cid">${row.id}</span>
+          <span class="pill ${band(row.escalation_risk)}" style="margin-left:8px">${
+            row.escalation_risk || "—"}</span>
+          <span class="txt" data-q="${i}"></span>
+        </span>
+      </div>`;
+    }).join("");
+    sla.breaching.forEach((row,i) => {
+      $("slaList").querySelector(`[data-q="${i}"]`).textContent =
+        row.first_message || row.key_issue || "";
+    });
+  }
+
+  drawChart(s.by_day);
+  bars("riskBars", s.by_risk, ["low","medium","high"]);
+  bars("sentBars", s.by_sentiment, ["positive","neutral","negative"]);
+  $("avgTurns").textContent = s.avg_turns;
+  $("totalCalls").textContent = s.total_calls;
+
+  // ---- FAQs, ranked by how often they actually come up ----
+  const f = await (await fetch("/api/faqs")).json();
+  $("faqMeta").textContent = f.total_cases
+    ? `${f.matched} of ${f.total_cases} cases matched` : "";
+  $("faqList").innerHTML = f.ranked.map((q,i) => `
+    <a class="faq" href="/?q=${encodeURIComponent(q.id)}">
+      <span class="em">${q.icon}</span>
+      <span class="txt"><span class="lbl" data-l="${i}"></span>
+        <span class="sample" data-s="${i}"></span></span>
+      <span class="cnt">${q.count}</span>
+      <span class="go">›</span>
+    </a>`).join("");
+  // text set separately so nothing can inject markup through a label
+  f.ranked.forEach((q,i) => {
+    $("faqList").querySelector(`[data-l="${i}"]`).textContent = q.label;
+    $("faqList").querySelector(`[data-s="${i}"]`).textContent = q.text;
+  });
+
+  // ---- knowledge gaps ----
+  const g = await (await fetch("/api/gaps")).json();
+  $("gapMeta").textContent = g.customer_messages
+    ? `${g.logged} of ${g.customer_messages} questions unanswered` : "";
+
+  if(!g.gaps.length){
+    $("gapList").innerHTML = `<div class="allgood"><div class="ico">✅</div>
+      <div><b>Nothing outstanding</b>
+      <span>Every customer question so far matched an article or an FAQ topic.</span>
+      </div></div>`;
+  } else {
+    $("gapList").innerHTML = g.gaps.map((row,i) => `
+      <div class="gap">
+        <span class="n">${row.count}×</span>
+        <span class="body">
+          <span class="q" data-q="${i}"></span>
+          <span class="meta">last asked ${when(row.last_seen)} ·
+            <b>${row.cases.slice(0,3).join(", ")}</b>${row.cases.length > 3
+              ? " +" + (row.cases.length - 3) : ""}</span>
+        </span>
+      </div>`).join("");
+    // customer text is untrusted -- never through innerHTML
+    g.gaps.forEach((row,i) => {
+      $("gapList").querySelector(`[data-q="${i}"]`).textContent = row.text;
+    });
+  }
+
+  const p = queryString(); p.set("limit", "50");
+  const c = await (await fetch("/api/cases?" + p)).json();
+  const rows = c.cases;
+
+  $("caseMeta").textContent = filtersActive()
+    ? `${c.matched} of ${c.total} match`
+    : (rows.length ? `showing ${rows.length} of ${c.total}` : "");
+  $("clearAll").hidden = !filtersActive();
+  $("csvBtn").textContent = filtersActive()
+    ? `Export CSV (${c.matched})` : "Export CSV";
+
+  if(!rows.length){
+    $("tableWrap").innerHTML = filtersActive()
+      ? `<div class="empty">
+           <div class="ico">🔍</div>
+           <h3>Nothing matches those filters</h3>
+           <p>${c.total} case${c.total === 1 ? "" : "s"} logged in total.
+              Try widening the search or clearing the filters.</p></div>`
+      : `<div class="empty">
+           <div class="ico">📭</div>
+           <h3>No issues logged yet</h3>
+           <p>Open the <a href="/">console</a> and send a customer message.
+              Each conversation becomes a case here, and stays <b>pending</b>
+              until you mark it resolved.</p></div>`;
+    return;
+  }
+
+  $("tableWrap").innerHTML = `<table><thead><tr>
+      <th>Case</th><th>Issue</th><th>Risk</th><th>Sentiment</th>
+      <th>Turns</th><th>SLA</th><th>Status</th><th>Opened</th>
+    </tr></thead><tbody>${rows.map((r,i) => `
+      <tr>
+        <td><span class="cid">${r.id}</span>${r.is_open ? '<span class="tag">open</span>' : ''}</td>
+        <td class="msg" data-i="${i}"></td>
+        <td><span class="pill ${band(r.escalation_risk)}"><i></i>${r.escalation_risk || "—"}</span></td>
+        <td><span class="pill ${tone(r.sentiment)}">${r.sentiment || "—"}</span></td>
+        <td>${r.turns}</td>
+        <td><span class="pill ${r.sla.status}" title="${slaTitle(r.sla)}">${
+             slaLabel(r.sla)}</span></td>
+        <td><span class="pill ${r.status}">${
+             r.status === "auto_resolved" ? "auto-resolved" : r.status}</span></td>
+        <td style="color:var(--ink-3)">${when(r.opened_at)}</td>
+      </tr>`).join("")}</tbody></table>`;
+
+  // set text content separately so a customer message can never inject markup
+  document.querySelectorAll("td.msg").forEach(td => {
+    const row = rows[Number(td.dataset.i)];
+    td.textContent = row.first_message || row.key_issue || "—";
+    td.title = td.textContent;
+  });
+
+  // every row opens its case
+  document.querySelectorAll("tbody tr").forEach((tr, i) => {
+    tr.onclick = () => openCase(rows[i].id);
+    tr.title = "Open " + rows[i].id;
+  });
+}
+
+/* ---------------- issues over time ---------------- */
+function drawChart(days){
+  const svg = $("chart");
+
+  if(!days || !days.length){
+    svg.innerHTML = `<text x="360" y="105" text-anchor="middle" class="xlab">
+      No cases yet</text>`;
+    $("chartMeta").textContent = "";
+    return;
+  }
+
+  const W = 720, H = 210, L = 34, R = 10, T = 20, B = 30;   // margins
+  const plotW = W - L - R, plotH = H - T - B;
+
+  const peak = Math.max(1, ...days.map(d => d.total));
+  // A tidy top gridline that still uses the height. A coarse 1/2/5/10/20
+  // ladder sent a peak of 11 to a 20 axis and wasted half the chart, so the
+  // steps below are finer. Each is divisible by 2, to keep the mid gridline
+  // on a whole number.
+  const LADDER = [2,4,6,8,10,12,16,20,24,30,40,50,60,80,100,150,200,300,500];
+  const nice = LADDER.find(n => n >= peak) || Math.ceil(peak / 100) * 100;
+  const y = v => T + plotH * (1 - v / nice);
+
+  const slot = plotW / days.length;
+  const bw = Math.max(6, Math.min(38, slot * 0.62));
+
+  const parts = [];
+
+  // horizontal gridlines + y labels
+  [0, 0.5, 1].forEach(f => {
+    const v = Math.round(nice * f);
+    parts.push(`<line class="${f === 0 ? "zero" : "grid"}" x1="${L}" x2="${W-R}"
+      y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/>`);
+    parts.push(`<text class="ylab" x="${L-8}" y="${(y(v)+3.5).toFixed(1)}"
+      text-anchor="end">${v}</text>`);
+  });
+
+  // label roughly six dates, never every one
+  const every = Math.max(1, Math.round(days.length / 6));
+
+  days.forEach((d, i) => {
+    const cx = L + slot * i + slot / 2;
+    const x = cx - bw / 2;
+
+    const hRes = (d.resolved / nice) * plotH;
+    const hPen = (d.pending  / nice) * plotH;
+    const yPen = y(d.total);              // pending sits on top
+    const yRes = y(d.resolved);
+
+    const label = new Date(d.day + "T00:00:00Z")
+      .toLocaleDateString(undefined, {day:"numeric", month:"short", timeZone:"UTC"});
+
+    // one transparent hit area per day carries the native tooltip
+    parts.push(`<g><rect class="hit" x="${(cx-slot/2).toFixed(1)}" y="${T}"
+        width="${slot.toFixed(1)}" height="${plotH}">
+        <title>${label}: ${d.total} opened — ${d.resolved} resolved, ${d.pending} pending</title>
+      </rect>`);
+
+    if(d.pending)  parts.push(`<rect class="bpen" x="${x.toFixed(1)}"
+        y="${yPen.toFixed(1)}" width="${bw.toFixed(1)}" height="${hPen.toFixed(1)}"
+        rx="3"/>`);
+    if(d.resolved) parts.push(`<rect class="bres" x="${x.toFixed(1)}"
+        y="${yRes.toFixed(1)}" width="${bw.toFixed(1)}" height="${hRes.toFixed(1)}"
+        rx="3"/>`);
+    parts.push("</g>");
+
+    if(d.total)
+      parts.push(`<text class="peak" x="${cx.toFixed(1)}"
+        y="${(y(d.total)-5).toFixed(1)}" text-anchor="middle">${d.total}</text>`);
+
+    if(i % every === 0 || i === days.length - 1)
+      parts.push(`<text class="xlab" x="${cx.toFixed(1)}" y="${H-10}"
+        text-anchor="middle">${label}</text>`);
+  });
+
+  svg.innerHTML = parts.join("");
+
+  const opened = days.reduce((n, d) => n + d.total, 0);
+  $("chartMeta").textContent =
+    `${opened} opened over ${days.length} day${days.length === 1 ? "" : "s"}`;
+}
+
+/* ---------------- agent performance ---------------- */
+const PERF_COLOURS = {tone:"#5B8DEF", empathy:"#0B8A4B", clarity:"#C97A00"};
+
+function drawPerfChart(days){
+  const svg = $("perfChart");
+  if(!days || days.length < 1){
+    svg.innerHTML = '<text x="310" y="100" text-anchor="middle">No scores yet</text>';
+    return;
+  }
+
+  const W=620, H=200, L=30, R=12, T=14, B=28;
+  const plotW=W-L-R, plotH=H-T-B;
+  const y = v => T + plotH * (1 - v/10);
+  const x = i => days.length === 1
+    ? L + plotW/2
+    : L + (plotW * i) / (days.length - 1);
+
+  const parts = [];
+  [0,5,10].forEach(v => {
+    parts.push(`<line class="grid" x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/>`);
+    parts.push(`<text x="${L-7}" y="${y(v)+3.5}" text-anchor="end">${v}</text>`);
+  });
+
+  for(const key of ["tone","empathy","clarity"]){
+    const pts = days.map((d,i) => d[key] === null ? null : [x(i), y(d[key])])
+                    .filter(Boolean);
+    if(!pts.length) continue;
+    if(pts.length > 1){
+      const path = pts.map(([px,py],i) =>
+        (i?"L":"M") + px.toFixed(1) + " " + py.toFixed(1)).join(" ");
+      parts.push(`<path d="${path}" fill="none" stroke="${PERF_COLOURS[key]}"
+        stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
+    }
+    pts.forEach(([px,py]) => parts.push(
+      `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.4"
+       fill="${PERF_COLOURS[key]}" stroke="#fff" stroke-width="1.6"/>`));
+  }
+
+  days.forEach((d,i) => {
+    const label = new Date(d.day + "T00:00:00Z")
+      .toLocaleDateString(undefined, {day:"numeric", month:"short", timeZone:"UTC"});
+    // The first and last labels sit on the very edge of the plot, so centring
+    // them pushes half the text outside the viewBox and it gets clipped.
+    const anchor = i === 0 ? "start"
+                 : i === days.length - 1 ? "end"
+                 : "middle";
+    parts.push(`<text x="${x(i).toFixed(1)}" y="${H-9}" text-anchor="${anchor}">${
+      label} (${d.n})</text>`);
+  });
+
+  svg.innerHTML = parts.join("");
+}
+
+async function loadPerformance(){
+  const p = await (await fetch("/api/performance")).json();
+
+  $("perfMeta").textContent = p.scored
+    ? `${p.scored} scored conversation${p.scored === 1 ? "" : "s"}` : "";
+
+  // ---- trend cards ----
+  const arrow = {improving:"↑", declining:"↓", steady:"→"};
+  $("trendCards").innerHTML = ["tone","empathy","clarity"].map(key => {
+    const avg = p.averages[key];
+    const t = p.trend[key];
+    const note = !p.enough_for_trend
+      ? '<div class="d steady">need 4+ to judge</div>'
+      : t ? `<div class="d ${t.direction}">${arrow[t.direction]} ${
+              t.delta > 0 ? "+" : ""}${t.delta} ${t.direction}</div>`
+          : "";
+    return `<div class="trend"><div class="k">${key}</div>
+      <div class="v" style="color:${PERF_COLOURS[key]}">${avg ?? "—"}</div>
+      ${note}</div>`;
+  }).join("");
+
+  drawPerfChart(p.by_day);
+
+  // ---- suggestion acceptance ----
+  const q = p.suggestions || {produced:0, rated:0};
+  $("sugMeta").textContent = q.produced
+    ? `${q.rated} of ${q.produced} suggestions rated` : "";
+
+  if(!q.rated){
+    $("sugQuality").innerHTML = `<div class="allgood"><div class="ico">👍</div>
+      <div><b>Nothing rated yet</b><span>Use the thumbs on a suggested reply in
+      the console and it will show up here.</span></div></div>`;
+  } else {
+    const row = (label, g, hint) => {
+      if(!g.total) return `<div class="brow"><div class="k">${label}</div>
+        <div class="bar"></div><div class="n">—</div></div>`;
+      const colour = g.rate >= 66 ? "low" : g.rate >= 33 ? "medium" : "high";
+      return `<div class="brow">
+        <div class="k" style="width:104px;flex:0 0 104px">${label}</div>
+        <div class="bar"><div class="fill ${colour}" style="width:${g.rate}%"></div></div>
+        <div class="n" style="width:64px">${g.rate}%</div>
+        <div style="font-size:11px;color:var(--ink-3);width:74px;text-align:right">
+          ${g.up}👍 ${g.down}👎</div></div>`;
+    };
+    $("sugQuality").innerHTML =
+      `<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:18px">
+         <span style="font-size:38px;font-weight:800;letter-spacing:-.04em">${
+           q.overall.rate ?? "—"}%</span>
+         <span style="font-size:12.5px;color:var(--ink-3)">overall · ${
+           q.overall.up} useful, ${q.overall.down} not</span>
+       </div>`
+      + row("With article", q.grounded)
+      + row("No article", q.ungrounded);
+  }
+
+  // ---- coaching themes ----
+  $("themeMeta").textContent = p.themes.length
+    ? `${p.tips_total} tips` : "";
+  if(!p.themes.length){
+    $("themeList").innerHTML = `<div class="allgood"><div class="ico">📝</div>
+      <div><b>No coaching tips yet</b>
+      <span>Send a reply as Agent and it will be scored.</span></div></div>`;
+    return;
+  }
+  $("themeList").innerHTML = p.themes.map((t,i) => `
+    <div class="theme">
+      <span class="n">${t.count}×</span>
+      <span class="b"><span class="lb" data-l="${i}"></span>
+        <span class="ex" data-e="${i}"></span></span>
+    </div>`).join("");
+  p.themes.forEach((t,i) => {
+    $("themeList").querySelector(`[data-l="${i}"]`).textContent = t.label;
+    $("themeList").querySelector(`[data-e="${i}"]`).textContent = t.example;
+  });
+}
+
+/* ---------------- search + filters ---------------- */
+const FILTERS = {q:"", status:"all", risk:"all", sentiment:"all"};
+const GROUPS = {
+  fStatus:    ["all","pending","resolved","auto_resolved"],
+  fRisk:      ["all","low","medium","high"],
+  fSentiment: ["all","positive","neutral","negative"],
+};
+const FIELD = {fStatus:"status", fRisk:"risk", fSentiment:"sentiment"};
+
+function buildChips(){
+  for(const [id, options] of Object.entries(GROUPS)){
+    $(id).innerHTML = options.map(o =>
+      `<button data-v="${o}" aria-pressed="${o === "all"}">${
+         o === "auto_resolved" ? "auto" : o}</button>`).join("");
+    $(id).querySelectorAll("button").forEach(b => {
+      b.onclick = () => {
+        FILTERS[FIELD[id]] = b.dataset.v;
+        $(id).querySelectorAll("button").forEach(x =>
+          x.setAttribute("aria-pressed", x === b));
+        load();
+      };
+    });
+  }
+}
+
+function filtersActive(){
+  return FILTERS.q || FILTERS.status !== "all"
+      || FILTERS.risk !== "all" || FILTERS.sentiment !== "all";
+}
+
+function queryString(){
+  const p = new URLSearchParams();
+  if(FILTERS.q) p.set("q", FILTERS.q);
+  for(const k of ["status","risk","sentiment"])
+    if(FILTERS[k] !== "all") p.set(k, FILTERS[k]);
+  return p;
+}
+
+let typingTimer;
+$("q").addEventListener("input", e => {
+  FILTERS.q = e.target.value;
+  $("qClear").hidden = !FILTERS.q;
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(load, 250);      // wait for them to stop typing
+});
+$("qClear").onclick = () => {
+  $("q").value = ""; FILTERS.q = ""; $("qClear").hidden = true; load();
+};
+$("clearAll").onclick = () => {
+  Object.assign(FILTERS, {q:"", status:"all", risk:"all", sentiment:"all"});
+  $("q").value = ""; $("qClear").hidden = true;
+  buildChips();
+  load();
+};
+$("jsonBtn").onclick = () => {
+  const p = queryString();
+  window.location = "/api/export.json" + (p.toString() ? "?" + p : "");
+};
+
+$("csvBtn").onclick = () => {
+  // The export honours whatever is filtered, so what you see is what you get.
+  const p = queryString();
+  window.location = "/api/cases.csv" + (p.toString() ? "?" + p : "");
+};
+
+/* ---------------- case detail drawer ---------------- */
+const LEVEL = v => v >= 80 ? "high" : v >= 45 ? "medium" : "low";
+
+function closeDrawer(){
+  $("drawer").hidden = true; $("scrim").hidden = true;
+}
+$("dClose").onclick = closeDrawer;
+$("scrim").onclick = closeDrawer;
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !$("drawer").hidden) closeDrawer();
+});
+
+async function openCase(id){
+  $("drawer").hidden = false; $("scrim").hidden = false;
+  $("dTitle").textContent = id;
+  $("dWhen").textContent = "";
+  $("dStatus").className = "pill unknown"; $("dStatus").textContent = "…";
+  $("dBody").innerHTML = '<div class="muted" style="color:var(--ink-3)">Loading…</div>';
+  $("dClose").focus();
+
+  let data;
+  try{
+    data = await (await fetch("/api/cases/" + encodeURIComponent(id))).json();
+  }catch(err){
+    $("dBody").textContent = "Could not reach the server."; return;
+  }
+  if(!data.ok){ $("dBody").textContent = data.error || "No such case."; return; }
+  renderCase(data.case);
+}
+
+function renderCase(k){
+  $("dWhen").textContent =
+    "opened " + when(k.opened_at) + (k.closed_at ? " · closed " + when(k.closed_at) : "");
+  $("dStatus").className = "pill " + (k.status || "unknown");
+  $("dStatus").textContent = k.status || "unknown";
+
+  const chip = (cls, text) => `<span class="pill ${cls}">${text}</span>`;
+  const arrow = {rising:"↑ rising", falling:"↓ easing", flat:"→ steady"}[k.trend] || "";
+
+  const parts = [];
+
+  // ---- at a glance ----
+  parts.push('<div class="dsec">At a glance</div><div class="chipset">');
+  parts.push(chip(band(k.escalation_risk), "risk " + (k.escalation_risk || "—")));
+  parts.push(chip(tone(k.sentiment), k.sentiment || "—"));
+  parts.push(chip(band(k.urgency), "urgency " + (k.urgency || "—")));
+  if(k.frustration) parts.push(chip(LEVEL(k.frustration), k.frustration + "/100 " + arrow));
+  parts.push(chip("unknown", k.turns + " turns"));
+  parts.push(chip("unknown", k.calls + " API calls"));
+  parts.push("</div>");
+
+  // ---- key issue ----
+  parts.push('<div class="dsec">Key issue</div>');
+  parts.push('<div class="dcard" data-slot="issue"></div>');
+
+  // ---- escalation timeline ----
+  const scores = k.trajectory || [];
+  const customerTurns = (k.messages || []).filter(m => m.speaker === "customer");
+  if(scores.length){
+    parts.push('<div class="dsec">Escalation timeline</div><div>');
+    scores.forEach((score, i) => {
+      const lv = LEVEL(score);
+      parts.push(`<div class="step ${lv}"><div class="node"></div>
+        <div class="tl">Turn ${i+1} · ${score}/100</div>
+        <div class="tm" data-turn="${i}"></div>
+        <div class="tb"><span class="pill ${lv}"><i></i>${lv}</span></div></div>`);
+    });
+    parts.push("</div>");
+  }
+
+  // ---- transcript ----
+  parts.push('<div class="dsec">Full transcript</div>');
+  (k.messages || []).forEach((m, i) => {
+    parts.push(`<div class="dturn ${m.speaker}"><div class="dwho">${m.speaker}</div>
+      <div class="dbub" data-msg="${i}"></div></div>`);
+  });
+  if(!(k.messages || []).length) parts.push('<div class="dcard">No messages.</div>');
+
+  // ---- scorecard ----
+  parts.push('<div class="dsec">Final agent scorecard</div>');
+  if(k.feedback){
+    // The .fill colours are named after RISK levels (low = green, high = red).
+    // A score runs the other way -- a high score is good -- so a 7+ score
+    // borrows the green "low" colour. Named for the colour, not the meaning.
+    const row = (label, n) => {
+      const colour = n >= 7 ? "low" : n >= 5 ? "medium" : "high";
+      return `<div class="brow"><div class="k">${label}</div>
+        <div class="bar"><div class="fill ${colour}" style="width:${n*10}%"></div></div>
+        <div class="n">${n}/10</div></div>`;
+    };
+    parts.push('<div class="dcard">' + row("Tone", k.feedback.tone_score)
+      + row("Empathy", k.feedback.empathy_score)
+      + row("Clarity", k.feedback.clarity_score)
+      + '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"'
+      + ' data-slot="tip"></div></div>');
+  } else {
+    parts.push('<div class="dcard" style="color:var(--ink-3)">No agent reply was '
+      + 'scored in this case.</div>');
+  }
+
+  // ---- what never left the machine ----
+  const red = k.redactions || [];
+  parts.push('<div class="dsec">Kept from the model</div>');
+  if(red.length){
+    parts.push(red.map((r,i) => `<div class="redact">
+        <span class="kind">${r.kind}</span>
+        <span class="tok">${r.placeholder}</span>
+        <span class="msk" data-m="${i}"></span>
+      </div>`).join(""));
+    parts.push('<div class="dcard" style="margin-top:9px;color:var(--ink-3);'
+      + 'font-size:12px">These were swapped for placeholders before anything '
+      + 'was sent to Gemini, then put back in the reply. Only a masked hint is '
+      + 'stored here.</div>');
+  } else {
+    parts.push('<div class="dcard" style="color:var(--ink-3)">Nothing personal '
+      + 'was detected in this conversation.</div>');
+  }
+
+  // ---- suggested reply ----
+  parts.push('<div class="dsec">Suggested reply</div>');
+  parts.push(k.suggestion
+    ? '<div class="dcard" data-slot="sug"></div>'
+    : '<div class="dcard" style="color:var(--ink-3)">Not recorded for this case.</div>');
+
+  $("dBody").innerHTML = parts.join("");
+
+  // Text is set separately, never through innerHTML -- a customer message is
+  // untrusted input and must not be able to inject markup into this page.
+  const body = $("dBody");
+  const issue = body.querySelector('[data-slot="issue"]');
+  if(issue) issue.textContent = k.key_issue || "Not identified.";
+  body.querySelectorAll("[data-turn]").forEach(el => {
+    const t = customerTurns[Number(el.dataset.turn)];
+    el.textContent = t ? t.text : "";
+  });
+  body.querySelectorAll("[data-msg]").forEach(el => {
+    el.textContent = k.messages[Number(el.dataset.msg)].text;
+  });
+  body.querySelectorAll("[data-m]").forEach(el => {
+    el.textContent = red[Number(el.dataset.m)].masked;
+  });
+  const tip = body.querySelector('[data-slot="tip"]');
+  if(tip) tip.textContent = k.feedback.coaching_tip || "";
+  const sug = body.querySelector('[data-slot="sug"]');
+  if(sug) sug.textContent = k.suggestion;
+}
+
+$("refreshBtn").onclick = () => { load(); loadPerformance(); };
+buildChips();
+load();
+loadPerformance();
+setInterval(load, 15000);   // keep the numbers live while it sits on a screen
+</script>
+</body>
+</html>

@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Coach — Live Console</title>
+<style>
+/* ============================================================
+   Design notes
+   ------------------------------------------------------------
+   Techniques borrowed from consumer delivery apps (Zomato /
+   Swiggy / Blinkit), adapted for an internal support tool:
+     - light, warm surface instead of a dark terminal
+     - one confident accent, used decisively and sparingly
+     - tinted status pills rather than plain coloured text
+     - the delivery-tracker stepper, reused as an escalation timeline
+     - big bold numerals for the number that actually matters
+     - soft layered shadows and generous corner radii
+     - a sticky bottom action bar, like a cart bar
+   The palette is our own, in the same warm family -- deliberately
+   NOT any real company's brand colours.
+   ============================================================ */
+:root{
+  --bg:#F5F4F1; --surface:#FFFFFF; --surface-2:#FAFAF8; --surface-3:#F2F1ED;
+  --ink:#16181C; --ink-2:#5A6069; --ink-3:#8B929B;
+  --line:#EAE8E3; --line-2:#E0DDD6;
+
+  --brand:#EF4E2B; --brand-600:#D8401F; --brand-bg:#FEF0EC;
+
+  --green:#0B8A4B; --green-bg:#E7F5EC;
+  --amber:#C97A00; --amber-bg:#FDF2E0;
+  --red:#D6382F;   --red-bg:#FCEDEB;
+
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+
+  --sh-1:0 1px 2px rgba(16,24,40,.05);
+  --sh-2:0 1px 3px rgba(16,24,40,.06), 0 8px 24px -6px rgba(16,24,40,.10);
+  --sh-3:0 2px 6px rgba(16,24,40,.07), 0 18px 40px -12px rgba(16,24,40,.16);
+  --r:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--sans);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+::selection{background:rgba(239,78,43,.16)}
+
+/* ---------------- app bar ---------------- */
+.appbar{
+  flex:0 0 auto; background:var(--surface); border-bottom:1px solid var(--line);
+  padding:11px 20px; display:flex; align-items:center; gap:14px;
+  box-shadow:var(--sh-1); z-index:20;
+}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{
+  width:34px;height:34px;border-radius:11px;flex:0 0 34px;display:grid;
+  place-items:center;color:#fff;font-weight:800;font-size:14px;letter-spacing:-.02em;
+  background:linear-gradient(140deg,#FF6B3D,var(--brand) 55%,#D8401F);
+  box-shadow:0 3px 10px rgba(239,78,43,.34);
+}
+.bname{font-size:15.5px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.btag{font-size:10.5px;color:var(--ink-3);font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;margin-top:1px}
+.grow{flex:1}
+.stats{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.stat{
+  display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;
+  border-radius:999px;background:var(--surface-3);border:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-3);white-space:nowrap;font-weight:500;
+}
+.stat b{color:var(--ink);font-weight:650;font-family:var(--mono);font-size:11px}
+.beat{width:7px;height:7px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 3px rgba(11,138,75,.14)}
+.beat.off{background:var(--red);box-shadow:0 0 0 3px rgba(214,56,47,.14)}
+.beat.busy{background:var(--amber);box-shadow:0 0 0 3px rgba(201,122,0,.16);
+  animation:blink 1s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+
+.nav{display:flex;gap:4px;background:var(--surface-3);border:1px solid var(--line);
+  border-radius:11px;padding:3px}
+.nav a{padding:6px 15px;border-radius:8px;text-decoration:none;font-size:12.5px;
+  font-weight:700;color:var(--ink-3);transition:.15s}
+.nav a:hover{color:var(--ink)}
+.nav a.on{background:var(--surface);color:var(--brand);box-shadow:var(--sh-1)}
+
+/* ---------------- buttons ---------------- */
+.btn{
+  height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink-2);font-family:var(--sans);
+  font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;
+  box-shadow:var(--sh-1);
+}
+.btn:hover{background:var(--surface-2);color:var(--ink);border-color:#D2CEC5}
+.btn:active{transform:scale(.97)}
+.btn.brand{background:var(--brand);border-color:var(--brand);color:#fff;
+  box-shadow:0 2px 8px rgba(239,78,43,.3)}
+.btn.brand:hover{background:var(--brand-600);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* ---------------- layout ---------------- */
+.shell{flex:1;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(400px,.8fr);
+  gap:18px;padding:18px 20px 0;overflow:hidden}
+.col{display:flex;flex-direction:column;min-height:0}
+.rail{overflow-y:auto;padding-bottom:22px;display:flex;flex-direction:column;gap:14px}
+.rail::-webkit-scrollbar,.stream::-webkit-scrollbar{width:10px}
+.rail::-webkit-scrollbar-thumb,.stream::-webkit-scrollbar-thumb{
+  background:#DFDCD4;border-radius:10px;border:3px solid var(--bg)}
+
+.slab{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:11px;flex:0 0 auto}
+
+/* ---------------- panels ---------------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--sh-2);overflow:hidden;flex:0 0 auto}
+.phead{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;justify-content:space-between;gap:10px}
+.ptitle{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--ink-2)}
+.pmeta{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+.pbody{padding:16px}
+
+/* ---------------- pills ---------------- */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;
+  border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.02em;
+  text-transform:capitalize}
+.pill.low,.pill.positive{background:var(--green-bg);color:var(--green)}
+.pill.medium,.pill.neutral{background:var(--amber-bg);color:var(--amber)}
+.pill.high,.pill.negative{background:var(--red-bg);color:var(--red)}
+.pill.none{background:var(--surface-3);color:var(--ink-3)}
+.pill i{width:6px;height:6px;border-radius:50%;background:currentColor;display:block}
+
+/* ---------------- hero risk ---------------- */
+.hero{display:flex;align-items:center;gap:15px}
+.heroval{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1.05;
+  text-transform:capitalize}
+.heroval.low{color:var(--green)} .heroval.medium{color:var(--amber)}
+.heroval.high{color:var(--red)}  .heroval.none{color:var(--ink-3)}
+.herosub{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.45}
+.shield{width:54px;height:54px;border-radius:16px;flex:0 0 54px;display:grid;
+  place-items:center;font-size:22px;background:var(--surface-3)}
+.shield.low{background:var(--green-bg)} .shield.medium{background:var(--amber-bg)}
+.shield.high{background:var(--red-bg)}
+
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.mini{border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+  background:var(--surface-2)}
+.mini .k{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:7px}
+
+/* ------- escalation tracker: the Swiggy/Blinkit delivery stepper ------- */
+.track{position:relative}
+.step{position:relative;padding:0 0 20px 30px}
+.step:last-child{padding-bottom:2px}
+.step::before{                       /* the connecting rail */
+  content:"";position:absolute;left:8px;top:19px;bottom:-2px;width:2px;
+  background:var(--line-2);border-radius:2px;
+}
+.step:last-child::before{display:none}
+.step .node{
+  position:absolute;left:0;top:3px;width:18px;height:18px;border-radius:50%;
+  background:var(--surface);border:2.5px solid var(--line-2);
+  display:grid;place-items:center;
+}
+.step .node::after{content:"";width:6px;height:6px;border-radius:50%;
+  background:var(--line-2)}
+.step.low .node{border-color:var(--green)}   .step.low .node::after{background:var(--green)}
+.step.medium .node{border-color:var(--amber)}.step.medium .node::after{background:var(--amber)}
+.step.high .node{border-color:var(--red)}    .step.high .node::after{background:var(--red)}
+.step.now.low .node{box-shadow:0 0 0 5px rgba(11,138,75,.13)}
+.step.now.medium .node{box-shadow:0 0 0 5px rgba(201,122,0,.14)}
+.step.now.high .node{box-shadow:0 0 0 5px rgba(214,56,47,.13)}
+.step .tlabel{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.05em;
+  text-transform:uppercase}
+.step .msg{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.step .badge{margin-top:6px}
+
+/* ---------------- conversation ---------------- */
+.stream{flex:1;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;
+  gap:13px;padding-bottom:12px}
+.turn{max-width:76%;animation:pop .22s cubic-bezier(.2,.9,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(7px) scale(.99)}}
+.turn.agent{align-self:flex-end}
+.who{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:5px}
+.turn.agent .who{text-align:right}
+.bubble{padding:12px 15px;border-radius:15px;font-size:13.5px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;box-shadow:var(--sh-1)}
+.turn.customer .bubble{background:var(--surface);border:1px solid var(--line);
+  border-bottom-left-radius:5px}
+.turn.agent .bubble{background:linear-gradient(160deg,#FF6B3D,var(--brand));
+  color:#fff;border-bottom-right-radius:5px;box-shadow:0 3px 12px rgba(239,78,43,.26)}
+
+.empty{margin:auto;text-align:center;max-width:390px;padding:26px}
+.empty .ico{width:56px;height:56px;border-radius:18px;background:var(--brand-bg);
+  display:grid;place-items:center;font-size:25px;margin:0 auto 15px}
+.empty h3{font-size:16px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.empty p{font-size:13px;color:var(--ink-2);line-height:1.7}
+
+/* ---------------- composer: sticky cart bar ---------------- */
+.dock{flex:0 0 auto;padding:12px 20px 16px;
+  background:linear-gradient(180deg,rgba(245,244,241,0),var(--bg) 34%)}
+.dockcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  box-shadow:var(--sh-3);padding:11px 12px 12px}
+.dockrow{display:flex;gap:10px;align-items:center;margin-bottom:9px}
+.seg{display:inline-flex;background:var(--surface-3);border-radius:11px;padding:3px;
+  border:1px solid var(--line)}
+.seg button{height:28px;padding:0 15px;border:0;border-radius:8px;background:transparent;
+  color:var(--ink-3);font-size:12.5px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:.15s}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--brand);
+  box-shadow:var(--sh-1)}
+.cost{font-size:11.5px;color:var(--ink-3);font-weight:500}
+.quick{display:flex;gap:7px;overflow-x:auto;padding:0 0 10px;scrollbar-width:none}
+.quick::-webkit-scrollbar{display:none}
+.chipq{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;height:32px;
+  padding:0 13px;border-radius:999px;border:1px solid var(--line-2);
+  background:var(--surface-2);color:var(--ink-2);font-family:var(--sans);
+  font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.chipq:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-bg)}
+.chipq:active{transform:scale(.96)}
+.chipq .em{font-size:14px;line-height:1}
+.quicklabel{font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+.inputrow{display:flex;gap:10px;align-items:flex-end}
+textarea{flex:1;min-height:42px;max-height:140px;resize:none;padding:11px 14px;
+  border-radius:12px;border:1px solid var(--line-2);background:var(--surface-2);
+  color:var(--ink);font-family:var(--sans);font-size:13.5px;line-height:1.55;
+  outline:none;transition:.15s}
+textarea:focus{border-color:#F0A88F;background:var(--surface);
+  box-shadow:0 0 0 3.5px rgba(239,78,43,.11)}
+textarea::placeholder{color:var(--ink-3)}
+/* ---------------- voice input ---------------- */
+/* ---------------- back-office lookups ---------------- */
+.call{border:1px solid var(--line);border-radius:12px;background:var(--surface-2);
+  padding:11px 13px;margin-bottom:9px}
+.call:last-child{margin-bottom:0}
+.callhead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 7px;border-radius:5px}
+.badge.read{background:var(--surface-3);color:var(--ink-3)}
+.badge.write{background:var(--amber-bg);color:var(--amber)}
+.badge.blocked{background:var(--red-bg);color:var(--red)}
+.callname{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink)}
+.callargs{font-family:var(--mono);font-size:11px;color:var(--ink-3);word-break:break-all}
+.callres{margin-top:7px;background:var(--surface);border:1px solid var(--line);
+  border-radius:9px;padding:8px 10px;max-height:118px;overflow:auto;
+  white-space:pre-wrap;font-family:var(--mono);font-size:11px;color:var(--ink-2);
+  line-height:1.5}
+.rate{display:inline-flex;gap:5px;margin-right:auto}
+.rate button{width:34px;height:34px;border-radius:9px;border:1px solid var(--line-2);
+  background:var(--surface);font-size:15px;cursor:pointer;transition:.15s;
+  display:grid;place-items:center;box-shadow:var(--sh-1)}
+.rate button:hover{border-color:var(--brand);background:var(--brand-bg)}
+.rate button:active{transform:scale(.94)}
+.rate button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand);
+  filter:saturate(1.2)}
+.rate button.down[aria-pressed="true"]{border-color:var(--red);background:var(--red-bg)}
+.rate button.up[aria-pressed="true"]{border-color:var(--green);background:var(--green-bg)}
+
+.approve{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-3);
+  font-weight:600;cursor:pointer;user-select:none}
+.approve input{accent-color:var(--brand);width:15px;height:15px;cursor:pointer}
+
+.mic{
+  width:42px;height:42px;flex:0 0 42px;border-radius:12px;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink-2);font-size:17px;cursor:pointer;
+  display:grid;place-items:center;transition:.15s;box-shadow:var(--sh-1);
+}
+.mic:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-bg)}
+.mic:active{transform:scale(.95)}
+.mic[aria-pressed="true"]{
+  background:var(--brand);border-color:var(--brand);color:#fff;
+  box-shadow:0 0 0 0 rgba(239,78,43,.5);animation:micpulse 1.4s ease-out infinite;
+}
+@keyframes micpulse{
+  70%{box-shadow:0 0 0 12px rgba(239,78,43,0)}
+  100%{box-shadow:0 0 0 0 rgba(239,78,43,0)}
+}
+.mic:disabled{opacity:.4;cursor:not-allowed}
+.lang{display:inline-flex;background:var(--surface-3);border:1px solid var(--line);
+  border-radius:9px;padding:2px}
+.lang button{height:24px;padding:0 9px;border:0;border-radius:6px;background:transparent;
+  color:var(--ink-3);font-size:11px;font-weight:700;cursor:pointer;
+  font-family:var(--sans);transition:.15s}
+.lang button[aria-pressed="true"]{background:var(--surface);color:var(--brand);
+  box-shadow:var(--sh-1)}
+.vstat{font-size:11.5px;font-weight:600;color:var(--brand);display:flex;
+  align-items:center;gap:6px}
+.vstat .dot3{display:inline-flex;gap:3px}
+.vstat .dot3 i{width:4px;height:4px;border-radius:50%;background:currentColor;
+  animation:vbounce 1s infinite}
+.vstat .dot3 i:nth-child(2){animation-delay:.15s}
+.vstat .dot3 i:nth-child(3){animation-delay:.3s}
+@keyframes vbounce{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+.kbd{font-family:var(--mono);font-size:10.5px;background:var(--surface-3);
+  border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;
+  padding:1px 5px;color:var(--ink-3)}
+
+/* ---------------- scorecard ---------------- */
+.srow{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.srow .k{font-size:12.5px;color:var(--ink-2);width:64px;flex:0 0 64px;font-weight:600}
+.bar{flex:1;height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.barfill{height:100%;border-radius:99px;width:0;
+  transition:width .6s cubic-bezier(.2,.85,.25,1)}
+.barfill.bad{background:linear-gradient(90deg,#F0705F,var(--red))}
+.barfill.mid{background:linear-gradient(90deg,#EFB44E,var(--amber))}
+.barfill.good{background:linear-gradient(90deg,#4FBF87,var(--green))}
+.srow .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-2);
+  width:38px;text-align:right}
+.tipbox{margin-top:14px;padding:13px 14px;border-radius:13px;background:var(--brand-bg);
+  border:1px solid #FBDDD4;font-size:12.5px;line-height:1.65;color:#8A3A22}
+.tipbox b{display:block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  margin-bottom:5px;color:var(--brand-600)}
+
+.replybox{font-size:13.5px;line-height:1.7;white-space:pre-wrap;color:var(--ink)}
+.pfoot{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:9px;
+  justify-content:flex-end;background:var(--surface-2)}
+.idle{color:var(--ink-3);font-size:12.5px;line-height:1.65}
+.skel{height:11px;border-radius:7px;
+  background:linear-gradient(90deg,#EFEDE8,#F7F6F3,#EFEDE8);
+  background-size:200% 100%;animation:shim 1.15s infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.skel + .skel{margin-top:9px}
+
+/* ---------------- toast ---------------- */
+.toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:70;
+  display:flex;flex-direction:column;gap:9px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--line);
+  border-left:4px solid var(--red);border-radius:13px;padding:12px 16px;
+  font-size:12.5px;max-width:540px;box-shadow:var(--sh-3);animation:pop .2s ease-out}
+.toast b{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--red);margin-bottom:3px}
+.toast.ok{border-left-color:var(--green)}
+.toast.ok b{color:var(--green)}
+.toast span{color:var(--ink-2);word-break:break-word}
+
+@media (max-width:1020px){
+  .shell{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;overflow:auto}
+}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="brand">
+    <div class="logo">SC</div>
+    <div>
+      <div class="bname">Support Coach</div>
+      <div class="btag">Live Console</div>
+    </div>
+  </div>
+  <div class="grow"></div>
+  <div class="stats">
+    <span class="stat"><i class="beat off" id="beat"></i><span id="conn">connecting</span></span>
+    <span class="stat">Model <b id="modelChip">—</b></span>
+    <span class="stat">Latency <b id="latChip">—</b></span>
+    <span class="stat">Case <b id="caseChip">—</b></span>
+    <span class="stat">Calls <b id="callChip">0</b></span>
+  </div>
+  <div class="nav">
+    <a href="/" class="on">Console</a>
+    <a href="/dashboard">Dashboard</a>
+  </div>
+  <button class="btn" id="seedBtn">Load demo</button>
+  <button class="btn" id="newBtn">New case</button>
+  <button class="btn brand" id="resolveBtn">Resolve</button>
+</div>
+
+<div class="shell">
+  <div class="col">
+    <div class="slab">Conversation</div>
+    <div class="stream" id="stream"></div>
+  </div>
+
+  <div class="col">
+    <div class="slab">Live intelligence</div>
+    <div class="rail">
+
+      <div class="panel">
+        <div class="pbody">
+          <div class="hero">
+            <div class="shield" id="shield">🛡️</div>
+            <div>
+              <div class="heroval none" id="riskVal">No signal</div>
+              <div class="herosub" id="riskSub">Send a customer message to begin.</div>
+            </div>
+          </div>
+          <div class="duo">
+            <div class="mini"><div class="k">Sentiment</div>
+              <span class="pill none" id="mSent">—</span></div>
+            <div class="mini"><div class="k">Urgency</div>
+              <span class="pill none" id="mUrg">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="callPanel" hidden>
+        <div class="phead">
+          <span class="ptitle">Back-office lookups</span>
+          <span class="pmeta" id="callMeta"></span>
+        </div>
+        <div class="pbody" id="callList"></div>
+      </div>
+
+      <div class="panel" id="trackPanel" hidden>
+        <div class="phead">
+          <span class="ptitle">Escalation timeline</span>
+          <span class="pmeta" id="trackMeta"></span>
+        </div>
+        <div class="pbody"><div class="track" id="track"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Key issue</span></div>
+        <div class="pbody"><div class="idle" id="keyIssue">Nothing detected yet.</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="phead">
+          <span class="ptitle">Agent scorecard</span>
+          <span class="pmeta" id="scoreMeta"></span>
+        </div>
+        <div class="pbody" id="scoreBody">
+          <div class="idle">Send a message as <b>Agent</b> and it will be scored
+            on tone, empathy and clarity.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Suggested reply</span></div>
+        <div class="pbody"><div class="idle" id="suggestion">No suggestion yet.</div></div>
+        <div class="pfoot" id="sugFoot" hidden>
+          <span class="rate" role="group" aria-label="Was this suggestion useful?">
+            <button class="up" id="rateUp" aria-pressed="false"
+                    title="Useful — I would send this">👍</button>
+            <button class="down" id="rateDown" aria-pressed="false"
+                    title="Not useful">👎</button>
+          </span>
+          <button class="btn" id="copyBtn">Copy</button>
+          <button class="btn brand" id="useBtn">Use this reply</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="dockcard">
+    <div id="quickWrap" hidden>
+      <div class="quicklabel">Common issues — click to fill</div>
+      <div class="quick" id="quick"></div>
+    </div>
+    <div class="dockrow">
+      <div class="seg" role="tablist">
+        <button role="tab" id="tabCustomer" aria-selected="true">Customer</button>
+        <button role="tab" id="tabAgent" aria-selected="false">Agent</button>
+      </div>
+      <span class="cost" id="costHint">analyses, looks up and drafts a reply</span>
+      <label class="approve" title="Let the coach actually carry out refunds and resets">
+        <input type="checkbox" id="allowWrites"> allow actions
+      </label>
+      <span class="lang" id="langPick" hidden role="group" aria-label="Speech language">
+        <button data-lang="en-IN" aria-pressed="true" title="Indian English">EN</button>
+        <button data-lang="hi-IN" aria-pressed="false" title="Hindi">हिं</button>
+      </span>
+      <span class="vstat" id="vstat" hidden>
+        listening<span class="dot3"><i></i><i></i><i></i></span>
+      </span>
+      <div class="grow"></div>
+      <span class="cost"><span class="kbd">⌘</span> <span class="kbd">↵</span> send
+        &nbsp;·&nbsp; <span class="kbd">tab</span> switch</span>
+    </div>
+    <div class="inputrow">
+      <textarea id="input" rows="1" placeholder="Type what the customer just said…"></textarea>
+      <button class="mic" id="micBtn" aria-pressed="false" title="Speak instead of typing"
+              aria-label="Speak instead of typing">🎤</button>
+      <button class="btn brand" id="sendBtn" style="height:42px;padding:0 22px">Send</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let speaker = "customer", busy = false;
+
+const DEMO = [
+  ["customer", "hello, mera recharge nahi hua but paise cut gaye"],
+  ["agent",    "Please share your transaction ID."],
+  ["customer", "bhai 2 din ho gaye, abhi tak refund nahi aaya"],
+  ["customer", "ye kaisa service hai?? bahut ganda experience hai"],
+];
+const RISK_COPY = {
+  low:    "Conversation is under control.",
+  medium: "Frustration is building — acknowledge it now.",
+  high:   "Escalation likely — bring in a senior agent.",
+};
+const SHIELD = {low:"🛡️", medium:"⚠️", high:"🚨"};
+const band = v => ["low","medium","high"].includes(v) ? v : "none";
+// sentiment uses its own words, so it needs its own mapping -- running it
+// through band() painted every sentiment grey.
+const tone = v => ["positive","neutral","negative"].includes(v) ? v : "none";
+
+function toast(title, message){
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = "<b></b><span></span>";
+  el.querySelector("b").textContent = title;
+  el.querySelector("span").textContent = message;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 9000);
+}
+function setBusy(on){
+  busy = on;
+  $("sendBtn").disabled = on;
+  $("seedBtn").disabled = on;
+  $("beat").className = "beat" + (on ? " busy" : "");
+  $("conn").textContent = on ? "analysing…" : "live";
+}
+
+/* ---------------- render ---------------- */
+function renderStream(history){
+  const box = $("stream");
+  if(!history.length){
+    box.innerHTML = `<div class="empty">
+      <div class="ico">💬</div>
+      <h3>No conversation yet</h3>
+      <p>Type a customer message below, or press <b>Load demo</b> to replay the
+      failed-recharge conversation. Every customer turn is analysed for sentiment,
+      urgency and escalation risk. Every agent turn is scored, with a suggested reply.</p>
+    </div>`;
+    return;
+  }
+  box.innerHTML = history.map(m => `
+    <div class="turn ${m.speaker}">
+      <div class="who">${m.speaker}</div>
+      <div class="bubble"></div>
+    </div>`).join("");
+  [...box.querySelectorAll(".bubble")].forEach((b,i) => b.textContent = history[i].text);
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderIntel(s){
+  const risk = s.escalation_risk, b = band(risk);
+
+  $("riskVal").className = "heroval " + b;
+  $("riskVal").textContent = b === "none" ? "No signal" : risk;
+  // the model now reports its own 0-100 score and a direction, so show them
+  const arrow = {rising:"↑ rising", falling:"↓ easing", flat:"→ steady"}[s.trend] || "";
+  $("riskSub").textContent = (RISK_COPY[risk] || "Send a customer message to begin.")
+    + (s.frustration ? `  ·  ${s.frustration}/100 ${arrow}` : "");
+  $("shield").className = "shield " + b;
+  $("shield").textContent = SHIELD[risk] || "🛡️";
+
+  const sent = $("mSent"), urg = $("mUrg");
+  sent.className = "pill " + tone(s.sentiment);
+  sent.textContent = s.sentiment && s.sentiment !== "unknown" ? s.sentiment : "—";
+  urg.className = "pill " + band(s.urgency);
+  urg.textContent = s.urgency && s.urgency !== "unknown" ? s.urgency : "—";
+
+  const issue = $("keyIssue");
+  issue.textContent = s.key_issue || "Nothing detected yet.";
+  issue.className = s.key_issue ? "" : "idle";
+
+  $("callChip").textContent = s.calls;
+  $("caseChip").textContent = s.case_id || "—";
+  renderCalls(s.facts);
+  if(s.model) $("modelChip").textContent = s.model;
+  renderTracker(s);
+}
+
+/* what the coach looked up in the order system */
+function renderCalls(facts){
+  if(!facts || !facts.length){ $("callPanel").hidden = true; return; }
+  $("callPanel").hidden = false;
+
+  const ran = facts.filter(f => f.ran).length;
+  $("callMeta").textContent = ran + "/" + facts.length + " carried out";
+
+  $("callList").innerHTML = facts.map((f,i) => {
+    const badge = (!f.ran && f.writes) ? "blocked" : (f.writes ? "write" : "read");
+    const label = badge === "blocked" ? "needs approval" : badge;
+    return `<div class="call">
+      <div class="callhead">
+        <span class="badge ${badge}">${label}</span>
+        <span class="callname" data-n="${i}"></span>
+        <span class="callargs" data-a="${i}"></span>
+      </div>
+      <div class="callres" data-r="${i}"></div>
+    </div>`;
+  }).join("");
+
+  // Results come out of the order system, so they are set as text, never markup.
+  facts.forEach((f,i) => {
+    $("callList").querySelector('[data-n="'+i+'"]').textContent = f.name;
+    $("callList").querySelector('[data-a="'+i+'"]').textContent =
+      Object.keys(f.args || {}).length ? JSON.stringify(f.args) : "()";
+    $("callList").querySelector('[data-r="'+i+'"]').textContent =
+      JSON.stringify(f.result, null, 1);
+  });
+}
+
+/* the delivery-tracker stepper, reused for escalation */
+function renderTracker(s){
+  const scores = s.trajectory || [];
+  if(!scores.length){ $("trackPanel").hidden = true; return; }
+  $("trackPanel").hidden = false;
+
+  const customerTurns = (s.history || []).filter(m => m.speaker === "customer");
+  const level = v => v >= 80 ? "high" : v >= 45 ? "medium" : "low";
+
+  $("track").innerHTML = scores.map((score, i) => {
+    const lv = level(score);
+    const now = i === scores.length - 1 ? " now" : "";
+    return `<div class="step ${lv}${now}">
+      <div class="node"></div>
+      <div class="tlabel">Turn ${i + 1}</div>
+      <div class="msg"></div>
+      <div class="badge"><span class="pill ${lv}"><i></i>${lv}</span></div>
+    </div>`;
+  }).join("");
+  [...$("track").querySelectorAll(".msg")].forEach((el, i) => {
+    el.textContent = customerTurns[i] ? customerTurns[i].text : "";
+  });
+  $("trackMeta").textContent = scores.length + (scores.length === 1 ? " turn" : " turns");
+}
+
+function renderScores(f, ms){
+  const row = (label, n) => {
+    const cls = n >= 7 ? "good" : n >= 5 ? "mid" : "bad";
+    return `<div class="srow"><div class="k">${label}</div>
+      <div class="bar"><div class="barfill ${cls}" style="width:${n*10}%"></div></div>
+      <div class="n">${n}/10</div></div>`;
+  };
+  $("scoreBody").innerHTML =
+    row("Tone", f.tone_score) + row("Empathy", f.empathy_score) +
+    row("Clarity", f.clarity_score) +
+    `<div class="tipbox"><b>Coaching tip</b><span></span></div>`;
+  $("scoreBody").querySelector(".tipbox span").textContent = f.coaching_tip;
+  $("scoreMeta").textContent = ms + " ms";
+}
+
+function showSkeletons(){
+  $("scoreBody").innerHTML = `<div class="skel" style="width:90%"></div>
+    <div class="skel" style="width:74%"></div><div class="skel" style="width:82%"></div>`;
+  const s = $("suggestion");
+  s.className = "replybox";
+  s.innerHTML = `<div class="skel" style="width:95%"></div>
+    <div class="skel" style="width:88%"></div><div class="skel" style="width:62%"></div>`;
+}
+function resetAgentPanels(){
+  $("scoreBody").innerHTML = `<div class="idle">Send a message as <b>Agent</b> and it
+    will be scored on tone, empathy and clarity.</div>`;
+  const s = $("suggestion");
+  s.className = "idle"; s.textContent = "No suggestion yet.";
+  $("sugFoot").hidden = true; $("scoreMeta").textContent = "";
+}
+
+/* ---------------- network ---------------- */
+async function send(text, who){
+  if(busy || !text.trim()) return;
+  setBusy(true);
+  if(who === "agent") showSkeletons();
+
+  const stream = $("stream");
+  if(stream.querySelector(".empty")) stream.innerHTML = "";
+  const el = document.createElement("div");
+  el.className = "turn " + who;
+  el.innerHTML = `<div class="who">${who}</div><div class="bubble"></div>`;
+  el.querySelector(".bubble").textContent = text;
+  stream.appendChild(el);
+  stream.scrollTop = stream.scrollHeight;
+
+  try{
+    const res = await fetch("/api/" + who, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({text})
+    });
+    const data = await res.json();
+    if(!data.ok){
+      toast("Request failed", data.error);
+      $("conn").textContent = "error";
+      if(who === "agent") resetAgentPanels();
+      return;
+    }
+    $("latChip").textContent = data.latency_ms + " ms";
+
+    // Answered without an agent? Say so loudly -- the case is already closed.
+    if(data.auto_reply){
+      toast_ok("Answered automatically",
+        `Matched "${data.auto_reply.topic}" at ${data.auto_reply.confidence} ` +
+        `confidence. ${data.state.case_id} is closed as deflected.`);
+      const sug = $("suggestion");
+      sug.className = "replybox"; sug.textContent = data.auto_reply.reply;
+      $("sugFoot").hidden = false;
+    }
+    if(data.model_used) $("modelChip").textContent = data.model_used;
+    renderStream(data.state.history);
+    renderIntel(data.state);
+
+    // A draft now arrives on the customer's turn too, so show it straight
+    // away rather than waiting for the agent to type something first.
+    if(who === "customer" && data.suggestion && !data.auto_reply){
+      const s = $("suggestion");
+      s.className = "replybox"; s.textContent = data.suggestion;
+      $("sugFoot").hidden = false;
+      showRating(null);
+    }
+    if(who === "agent"){
+      renderScores(data.feedback, data.latency_ms);
+      const s = $("suggestion");
+      s.className = "replybox"; s.textContent = data.suggestion;
+      $("sugFoot").hidden = false;
+      showRating(null);                 // a new suggestion starts unrated
+    }
+  }catch(err){
+    toast("Cannot reach the server", String(err));
+  }finally{
+    setBusy(false);
+    $("input").focus();
+  }
+}
+
+/* ---------------- wiring ---------------- */
+function setSpeaker(next){
+  speaker = next;
+  $("tabCustomer").setAttribute("aria-selected", next === "customer");
+  $("tabAgent").setAttribute("aria-selected", next === "agent");
+  $("input").placeholder = next === "customer"
+    ? "Type what the customer just said…" : "Type the agent's reply…";
+  $("costHint").textContent = next === "customer"
+    ? "analyses, looks up and drafts a reply"
+    : "scores your reply and redrafts it";
+}
+$("tabCustomer").onclick = () => setSpeaker("customer");
+$("tabAgent").onclick = () => setSpeaker("agent");
+
+const input = $("input");
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 140) + "px";
+});
+input.addEventListener("keydown", e => {
+  if(e.key === "Enter" && (e.metaKey || e.ctrlKey)){ e.preventDefault(); fire(); }
+  if(e.key === "Tab" && !e.shiftKey){
+    e.preventDefault(); setSpeaker(speaker === "customer" ? "agent" : "customer");
+  }
+});
+function fire(){
+  const text = input.value;
+  input.value = ""; input.style.height = "auto";
+  send(text, speaker);
+}
+$("sendBtn").onclick = fire;
+
+$("useBtn").onclick = () => {
+  setSpeaker("agent");
+  input.value = $("suggestion").textContent;
+  input.focus(); input.dispatchEvent(new Event("input"));
+};
+async function rate(verdict){
+  const already = $(verdict === "up" ? "rateUp" : "rateDown")
+                    .getAttribute("aria-pressed") === "true";
+  const sending = already ? null : verdict;      // clicking again clears it
+
+  const r = await (await fetch("/api/rate", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({rating: sending})
+  })).json();
+
+  if(!r.ok){ toast("Could not rate", r.error); return; }
+  showRating(sending);
+  if(sending) toast_ok(sending === "up" ? "Marked useful" : "Marked not useful",
+    "Thanks — this feeds the acceptance rate on the dashboard.");
+}
+
+function showRating(verdict){
+  $("rateUp").setAttribute("aria-pressed", verdict === "up");
+  $("rateDown").setAttribute("aria-pressed", verdict === "down");
+}
+
+$("rateUp").onclick   = () => rate("up");
+$("rateDown").onclick = () => rate("down");
+
+$("copyBtn").onclick = async () => {
+  await navigator.clipboard.writeText($("suggestion").textContent);
+  $("copyBtn").textContent = "Copied";
+  setTimeout(() => $("copyBtn").textContent = "Copy", 1400);
+};
+$("newBtn").onclick = async () => {
+  // Starts a fresh case. Whatever was said stays on the dashboard as pending.
+  const d = await (await fetch("/api/reset", {method:"POST"})).json();
+  renderStream(d.state.history); renderIntel(d.state); resetAgentPanels();
+  $("latChip").textContent = "—"; $("trackPanel").hidden = true;
+};
+
+$("allowWrites").onchange = async e => {
+  await fetch("/api/allow-writes", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({allow: e.target.checked})
+  });
+  toast_ok(e.target.checked ? "Actions enabled" : "Actions disabled",
+    e.target.checked
+      ? "Refunds and password resets will now be carried out for real."
+      : "Refunds and resets will be requested but left for a person to approve.");
+};
+
+$("resolveBtn").onclick = async () => {
+  const d = await (await fetch("/api/resolve", {method:"POST"})).json();
+  if(!d.ok){ toast("Nothing to resolve", d.error); return; }
+  toast_ok("Case resolved", `${d.resolved} is closed. A new case has started.`);
+  renderStream(d.state.history); renderIntel(d.state); resetAgentPanels();
+  $("latChip").textContent = "—"; $("trackPanel").hidden = true;
+  $("callPanel").hidden = true;
+};
+
+// a green variant of the toast, for things that went right
+function toast_ok(title, message){
+  const el = document.createElement("div");
+  el.className = "toast ok";
+  el.innerHTML = "<b></b><span></span>";
+  el.querySelector("b").textContent = title;
+  el.querySelector("span").textContent = message;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+$("seedBtn").onclick = async () => {
+  if(busy) return;
+  for(const [who, text] of DEMO){
+    setSpeaker(who);
+    await send(text, who);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  setSpeaker("customer");
+};
+
+/* ---------------- voice input ---------------- */
+/*
+ * Uses the browser's own speech recognition, so there is no extra library and
+ * no API cost -- the transcript is produced by the browser, and only the final
+ * text is sent to Gemini when you press Send.
+ *
+ * Chrome, Edge and Safari support this. Firefox does not, so the button hides
+ * itself rather than sitting there broken.
+ */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let voice = null, listening = false, voiceBase = "", silenceTimer = null;
+let voiceLang = "en-IN";
+
+// Called on every result. Kept as a named function so it can be exercised
+// without a microphone.
+function handleSpeech(finalText, interimText){
+  const spoken = (finalText + interimText).trim();
+  const base = voiceBase.trimEnd();
+  // Only join with a space when there is actually something on both sides --
+  // otherwise a silent moment kept appending a trailing space to what the
+  // agent had already typed, once per interim result.
+  input.value = base && spoken ? base + " " + spoken : (base || spoken);
+  input.dispatchEvent(new Event("input"));
+}
+
+function setListening(on){
+  listening = on;
+  $("micBtn").setAttribute("aria-pressed", on);
+  $("vstat").hidden = !on;
+  $("micBtn").textContent = on ? "⏹" : "🎤";
+  $("micBtn").title = on ? "Stop listening" : "Speak instead of typing";
+}
+
+function stopVoice(){
+  clearTimeout(silenceTimer);
+  if(voice){ try{ voice.stop(); }catch(e){} }
+  setListening(false);
+}
+
+function startVoice(){
+  if(!SpeechRec) return;
+
+  voice = new SpeechRec();
+  voice.lang = voiceLang;
+  voice.continuous = true;        // do not cut out after the first phrase
+  voice.interimResults = true;    // show words as they are recognised
+
+  voiceBase = input.value;        // keep anything already typed
+  let finalText = "";
+
+  voice.onresult = event => {
+    let interim = "";
+    for(let i = event.resultIndex; i < event.results.length; i++){
+      const chunk = event.results[i][0].transcript;
+      if(event.results[i].isFinal) finalText += chunk;
+      else interim += chunk;
+    }
+    handleSpeech(finalText, interim);
+
+    // Stop on its own after a couple of seconds of silence, so you do not
+    // have to reach for the mouse mid-sentence.
+    clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(stopVoice, 2500);
+  };
+
+  voice.onerror = event => {
+    setListening(false);
+    const why = {
+      "not-allowed":         "Microphone permission was refused. Allow it in the address bar, then try again.",
+      "service-not-allowed": "The browser blocked speech recognition. Check your microphone settings.",
+      "no-speech":           "",     // nothing said; not worth a toast
+      "aborted":             "",     // we stopped it ourselves
+      "audio-capture":       "No microphone was found.",
+      "network":             "Speech recognition needs a network connection.",
+    }[event.error];
+    if(why) toast("Voice input", why);
+  };
+
+  voice.onend = () => setListening(false);
+
+  try{
+    voice.start();
+    setListening(true);
+  }catch(err){
+    setListening(false);
+    toast("Voice input", String(err));
+  }
+}
+
+$("micBtn").onclick = () => listening ? stopVoice() : startVoice();
+
+$("langPick").querySelectorAll("button").forEach(b => {
+  b.onclick = () => {
+    voiceLang = b.dataset.lang;
+    $("langPick").querySelectorAll("button").forEach(x =>
+      x.setAttribute("aria-pressed", x === b));
+    if(listening){ stopVoice(); setTimeout(startVoice, 200); }   // re-arm
+  };
+});
+
+// Feature detection: show the controls only where they actually work.
+if(SpeechRec){
+  $("langPick").hidden = false;
+} else {
+  $("micBtn").hidden = true;
+  $("langPick").hidden = true;
+}
+
+/* ---------------- quick picks ---------------- */
+let FAQS = [];
+
+function renderQuick(){
+  if(!FAQS.length) return;
+  $("quickWrap").hidden = false;
+  $("quick").innerHTML = FAQS.map((f,i) =>
+    `<button class="chipq" data-i="${i}" title="Click to put this in the composer">
+       <span class="em">${f.icon}</span><span class="lbl"></span>
+     </button>`).join("");
+  // label via textContent so server-defined text can never inject markup
+  [...$("quick").querySelectorAll(".chipq")].forEach((b,i) => {
+    b.querySelector(".lbl").textContent = FAQS[i].label;
+    b.onclick = () => useFaq(FAQS[i]);
+  });
+}
+
+function useFaq(faq){
+  // A customer question, so switch the composer to Customer for them.
+  setSpeaker("customer");
+  input.value = faq.text;
+  input.dispatchEvent(new Event("input"));
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
+
+/* ---------------- boot ---------------- */
+(async () => {
+  try{
+    const h = await (await fetch("/api/health")).json();
+    $("modelChip").textContent = h.model;
+    $("beat").className = "beat" + (h.has_key ? "" : " off");
+    $("conn").textContent = h.has_key ? "live" : "no api key";
+    if(!h.has_key) toast("No API key",
+      "Add your key to gemini_api_key.txt, then restart the server.");
+  }catch(err){ $("conn").textContent = "offline"; }
+
+  try{
+    FAQS = (await (await fetch("/api/faqs")).json()).faqs || [];
+    renderQuick();
+    // the dashboard links here as /?q=<id> to pre-fill a question
+    const wanted = new URLSearchParams(location.search).get("q");
+    const match = FAQS.find(f => f.id === wanted);
+    if(match) useFaq(match);
+  }catch(err){ /* quick picks are a convenience, not a requirement */ }
+
+  // The dashboard links here as /?case=SC-1007 to carry on with a case.
+  const wanted = new URLSearchParams(location.search).get("case");
+  if(wanted){
+    try{
+      const r = await (await fetch("/api/open-case", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({id: wanted})
+      })).json();
+      if(r.ok) toast_ok("Case opened", `${wanted} loaded. Carry on where it left off.`);
+      else toast("Could not open case", r.error || wanted);
+    }catch(err){ toast("Could not open case", String(err)); }
+  }
+
+  const s = await (await fetch("/api/state")).json();
+  renderStream(s.state.history); renderIntel(s.state);
+  if(s.state.last_feedback){
+    renderScores(s.state.last_feedback, s.state.last_latency_ms || 0);
+    // keep the header consistent with the restored panels
+    if(s.state.last_latency_ms) $("latChip").textContent = s.state.last_latency_ms + " ms";
+    const sug = $("suggestion");
+    sug.className = "replybox"; sug.textContent = s.state.last_suggestion || "";
+    $("sugFoot").hidden = !s.state.last_suggestion;
+    const last = (s.state.ratings || []).slice(-1)[0];
+    showRating(last ? last.rating : null);
+  }
+  input.focus();
+})();
+</script>
+</body>
+</html>

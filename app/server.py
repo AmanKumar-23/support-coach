@@ -7,7 +7,8 @@ by build_core.py. This file only does four things:
     1. hold the state of the conversation currently open,
     2. keep every conversation as a "case" on disk, with a status,
     3. expose all of that over a small JSON API,
-    4. serve the two front ends (console + dashboard).
+    4. serve the two front ends (console + dashboard),
+    5. decide who is allowed to see which of those -- see auth.py.
 
 Run it with:
 
@@ -28,10 +29,15 @@ import time
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_from_directory
+from flask_login import current_user, login_user, logout_user
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+
+import auth  # noqa: E402  (needs HERE on the path)
+import metering  # noqa: E402
+from auth import require_role  # noqa: E402
 
 try:
     import coach_core
@@ -178,6 +184,20 @@ CREATE INDEX IF NOT EXISTS cases_risk   ON cases(escalation_risk);
 CREATE INDEX IF NOT EXISTS cases_opened ON cases(opened_at);
 """
 
+# Columns added after the first release. CREATE TABLE IF NOT EXISTS will not
+# add a column to a table that already exists, so an existing database needs
+# them applied by hand -- guarded, because ALTER TABLE has no IF NOT EXISTS.
+MIGRATIONS = [
+    ("owner", "ALTER TABLE cases ADD COLUMN owner TEXT"),
+]
+
+
+def apply_migrations(conn):
+    have = {row["name"] for row in conn.execute("PRAGMA table_info(cases)")}
+    for column, statement in MIGRATIONS:
+        if column not in have:
+            conn.execute(statement)
+
 
 def connect():
     """A fresh connection per call -- Flask serves requests on many threads,
@@ -187,9 +207,23 @@ def connect():
     return conn
 
 
+# auth.py and metering.py keep their tables in this same database, and the
+# test suite repoints the path after import -- so hand them the factory, not
+# the path.
+auth.configure(connect)
+metering.configure(connect)
+
+# Every Gemini call the engine makes now reports its token count here. The
+# engine stays unaware of pricing, budgets and storage.
+coach_core.USAGE_HOOK = metering.record
+
+
 def init_db():
     with connect() as conn:
         conn.executescript(SCHEMA)
+        conn.executescript(auth.SCHEMA)
+        conn.executescript(metering.SCHEMA)
+        apply_migrations(conn)
 
 
 def migrate_from_json():
@@ -227,7 +261,7 @@ def migrate_from_json():
 def _row_values(case):
     return (case.get("id"), case.get("status"), case.get("escalation_risk"),
             case.get("sentiment"), case.get("opened_at"), case.get("closed_at"),
-            json.dumps(case))
+            case.get("owner"), json.dumps(case))
 
 
 def save_case(case):
@@ -241,14 +275,15 @@ def save_case(case):
     with connect() as conn:
         conn.execute("""
             INSERT INTO cases (id, status, escalation_risk, sentiment,
-                               opened_at, closed_at, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                               opened_at, closed_at, owner, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 status=excluded.status,
                 escalation_risk=excluded.escalation_risk,
                 sentiment=excluded.sentiment,
                 opened_at=excluded.opened_at,
                 closed_at=excluded.closed_at,
+                owner=excluded.owner,
                 data=excluded.data
         """, _row_values(case))
 
@@ -270,11 +305,12 @@ def save_cases(cases):
     anything written against the old API still works."""
     with connect() as conn:
         conn.executescript(SCHEMA)
+        apply_migrations(conn)
         conn.execute("DELETE FROM cases")
         conn.executemany("""
             INSERT INTO cases (id, status, escalation_risk, sentiment,
-                               opened_at, closed_at, data)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                               opened_at, closed_at, owner, data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, [_row_values(c) for c in cases if c.get("id")])
 
 
@@ -293,6 +329,32 @@ def now_iso():
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def signed_in_username():
+    """The current user's name, or None outside a request.
+
+    persist() runs inside a request in the app but is called directly by the
+    test suite, where there is no request and no user to attribute a case to.
+    """
+    try:
+        return current_user.username if current_user.is_authenticated else None
+    except (RuntimeError, AttributeError):
+        return None          # no request context -- tests, or a CLI command
+
+
+def may_see_case(case):
+    """Whether the signed-in user is allowed to open this one case.
+
+    Leads and admins see everything -- that is what the dashboard is. An agent
+    sees their own, plus anything still unowned, which they claim by opening.
+    """
+    if not current_user.is_authenticated:
+        return False
+    if current_user.at_least("lead"):
+        return True
+    owner = case.get("owner")
+    return owner is None or owner == current_user.username
+
+
 # ==========================================================================
 # The conversation currently open
 # ==========================================================================
@@ -308,6 +370,7 @@ class LiveSession:
 
     def reset(self):
         self.case_id = None          # assigned on the first message
+        self.owner = None            # the agent it belongs to
         self.opened_at = None
         self.state = coach_core.ConversationState()
         self.last_customer_message = ""
@@ -336,6 +399,7 @@ class LiveSession:
     def as_case(self, status="pending", closed_at=None):
         return {
             "id": self.case_id,
+            "owner": self.owner,
             "opened_at": self.opened_at,
             "first_response_at": self.first_response_at,
             "closed_at": closed_at,
@@ -378,6 +442,11 @@ class LiveSession:
         if self.case_id is None:
             self.case_id = next_case_id(cases)
             self.opened_at = now_iso()
+            if self.owner is None:
+                self.owner = signed_in_username()
+
+        # Whatever this request spends from here on belongs to this case.
+        metering.bill_to(self.case_id)
 
         record = self.as_case(status=status, closed_at=closed_at)
 
@@ -415,6 +484,11 @@ class LiveSession:
         self.reset()
 
         self.case_id = case.get("id")
+        metering.bill_to(self.case_id)
+        # An unowned case -- one from before accounts existed -- is claimed by
+        # whoever opens it. Otherwise those cases would belong to nobody and
+        # no agent could ever pick them up again.
+        self.owner = case.get("owner") or signed_in_username()
         self.opened_at = case.get("opened_at")
         self.first_response_at = case.get("first_response_at")
         self.trajectory = list(case.get("trajectory") or [])
@@ -596,19 +670,122 @@ def note_redactions(session):
             session.redactions.append(entry)
 
 
+@app.before_request
+def open_billing_account():
+    """Attribute anything this request spends to whoever is making it.
+
+    Done here rather than at each call site so a route added later is metered
+    by default instead of by remembering to.
+    """
+    metering.begin(signed_in_username())
+
+
 def failure(error, status=502):
     return jsonify({"ok": False, "error": str(error)}), status
+
+
+def over_budget():
+    """429 with a reason, or None to carry on.
+
+    Checked once at the top of a turn rather than before each model call:
+    stopping half way through a tool-calling loop would leave the customer
+    with a reply quoting a lookup that never finished.
+    """
+    ok, why = metering.check_limits(signed_in_username())
+    if ok:
+        return None
+
+    response = jsonify({"ok": False, "error": why["error"],
+                        "limit": why["limit"]})
+    response.status_code = 429
+    response.headers["Retry-After"] = str(why["retry_after"])
+    return response
+
+
+# ==========================================================================
+# Sign in / sign out
+# ==========================================================================
+@app.get("/login")
+def login_page():
+    if current_user.is_authenticated:
+        return redirect("/")
+    return send_from_directory(app.static_folder, "login.html")
+
+
+# The role a page needs, so the login can tell whether sending somebody back
+# where they came from would only bounce them again.
+PAGE_ROLES = {"/dashboard": "lead", "/": "agent"}
+
+
+def landing_for(user, wanted=""):
+    """Where to send someone once they have signed in.
+
+    They get `wanted` only if it is a path on this site AND their role can
+    actually open it. An agent who followed a dashboard link while signed out
+    would otherwise log in and land straight on "not allowed", which reads as
+    the login having failed.
+    """
+    home = "/dashboard" if user.at_least("lead") else "/"
+
+    wanted = (wanted or "").strip()
+    # A protocol-relative "//evil.example" is a path to a browser and an open
+    # redirect to everyone else.
+    if not wanted.startswith("/") or wanted.startswith("//"):
+        return home
+
+    needed = next((role for path, role in PAGE_ROLES.items()
+                   if wanted == path or wanted.startswith(path.rstrip("/") + "/")),
+                  None)
+    if needed and not user.at_least(needed):
+        return home
+    return wanted
+
+
+@app.post("/api/login")
+def do_login():
+    body = request.json or {}
+    user, why = auth.authenticate(body.get("username", ""),
+                                  body.get("password", ""))
+    if user is None:
+        # 401 with a deliberately vague reason -- see auth.authenticate().
+        return jsonify({"ok": False, "error": why}), 401
+
+    login_user(user, remember=False, duration=None)
+    return jsonify({"ok": True, "user": user.as_dict(),
+                    "next": landing_for(user, body.get("next", ""))})
+
+
+@app.post("/api/logout")
+def do_logout():
+    logout_user()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/me")
+def me():
+    """Who is signed in. The front ends call this first and hide whatever the
+    role cannot reach, so nobody is shown a button that will only 403."""
+    if not current_user.is_authenticated:
+        return jsonify({"ok": False, "auth": "required"}), 401
+    return jsonify({"ok": True, "user": current_user.as_dict()})
+
+
+@app.get("/denied")
+def denied():
+    return send_from_directory(app.static_folder, "denied.html")
 
 
 # ==========================================================================
 # Pages
 # ==========================================================================
 @app.get("/")
+@require_role("agent")
 def index():
     return send_from_directory(app.static_folder, "index.html")
 
 
 @app.get("/dashboard")
+@require_role("lead")
 def dashboard():
     return send_from_directory(app.static_folder, "dashboard.html")
 
@@ -618,6 +795,15 @@ def dashboard():
 # ==========================================================================
 @app.get("/api/health")
 def health():
+    """Liveness, for a load balancer or a container probe.
+
+    Deliberately NOT behind a role -- a probe cannot sign in. So an anonymous
+    caller gets only "the process is up", and the key path and model name,
+    which are configuration, are shown to a signed-in user only.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"ok": True})
+
     key_file = coach_core.find_key_file()
     has_key = bool(coach_core.get_gemini_api_key(prompt_if_missing=False))
     return jsonify({
@@ -629,10 +815,15 @@ def health():
 
 
 @app.post("/api/customer")
+@require_role("agent")
 def customer_message():
     text = (request.json or {}).get("text", "").strip()
     if not text:
         return jsonify({"ok": False, "error": "Empty message."}), 400
+
+    refused = over_budget()
+    if refused:
+        return refused
 
     session.state.add_message("customer", text)
     session.last_customer_message = text
@@ -641,6 +832,12 @@ def customer_message():
     # nothing to do with whether the analysis succeeds.
     if is_knowledge_gap(text):
         session.unanswered.append({"text": text, "at": now_iso()})
+
+    # Give the case its id BEFORE the first model call, so every token this
+    # turn spends has a case to be billed to. Without this the opening turn
+    # of every conversation would be recorded against no case at all.
+    if session.case_id is None:
+        session.persist()
 
     started = time.perf_counter()
     try:
@@ -740,6 +937,7 @@ def customer_message():
 
 
 @app.post("/api/agent")
+@require_role("agent")
 def agent_message():
     text = (request.json or {}).get("text", "").strip()
     if not text:
@@ -750,6 +948,10 @@ def agent_message():
             "ok": False,
             "error": "There is no customer message to score this against yet.",
         }), 400
+
+    refused = over_budget()
+    if refused:
+        return refused
 
     session.state.add_message("agent", text)
 
@@ -807,6 +1009,7 @@ def agent_message():
 
 
 @app.post("/api/allow-writes")
+@require_role("lead")
 def set_allow_writes():
     """Turn human approval for data-changing actions on or off.
 
@@ -818,6 +1021,7 @@ def set_allow_writes():
 
 
 @app.post("/api/rate")
+@require_role("agent")
 def rate_suggestion():
     """Thumbs up or down on the suggestion currently on screen."""
     rating = (request.json or {}).get("rating")
@@ -838,11 +1042,13 @@ def rate_suggestion():
 
 
 @app.get("/api/state")
+@require_role("agent")
 def get_state():
     return jsonify({"ok": True, "state": session.as_dict()})
 
 
 @app.post("/api/reset")
+@require_role("agent")
 def reset():
     """Start a new conversation. Anything already said stays as a pending case."""
     if session.case_id:
@@ -852,6 +1058,7 @@ def reset():
 
 
 @app.post("/api/open-case")
+@require_role("agent")
 def open_case():
     """Load a saved case into the console so the agent can carry on with it."""
     case_id = (request.json or {}).get("id", "")
@@ -862,13 +1069,18 @@ def open_case():
 
     for case in load_cases():
         if case.get("id") == case_id:
+            if not may_see_case(case):
+                return jsonify({"ok": False,
+                                "error": "That case belongs to another agent."}), 403
             session.load(case)
+            session.persist()      # record the claim if it was unowned
             return jsonify({"ok": True, "state": session.as_dict()})
 
     return jsonify({"ok": False, "error": f"No case {case_id}."}), 404
 
 
 @app.post("/api/resolve")
+@require_role("agent")
 def resolve():
     """Mark the open case resolved, then start a fresh one."""
     if not session.case_id:
@@ -1152,6 +1364,7 @@ def performance(cases):
 
 
 @app.get("/api/performance")
+@require_role("lead")
 def performance_view():
     cases = load_cases()
     return jsonify({"ok": True, **performance(cases),
@@ -1159,6 +1372,7 @@ def performance_view():
 
 
 @app.get("/api/stats")
+@require_role("lead")
 def stats():
     """Everything the dashboard needs, counted server-side."""
     cases = load_cases()
@@ -1246,6 +1460,7 @@ def read_filters():
 
 
 @app.get("/api/faqs")
+@require_role("agent")
 def faqs():
     """The canned questions, each with how many saved cases look like it.
 
@@ -1284,6 +1499,7 @@ def faqs():
 
 
 @app.get("/api/cases")
+@require_role("lead")
 def list_cases():
     """Recent cases, newest first, without the full message transcript."""
     limit = int(request.args.get("limit", 25))
@@ -1303,16 +1519,32 @@ def list_cases():
         row["sla"] = sla_for(case)
         slim.append(row)
 
+    # One query for the whole page rather than one per row.
+    shown = slim[:limit]
+    costs = metering.costs_for_cases([r["id"] for r in shown if r.get("id")])
+    for row in shown:
+        row["usage"] = costs.get(row.get("id"),
+                                 {"tokens": 0, "cost_inr": 0})
+
     return jsonify({
         "ok": True,
-        "cases": slim[:limit],
+        "cases": shown,
         "shown": min(limit, len(slim)),
         "matched": len(slim),        # after filtering
         "total": len(all_cases),     # before filtering
     })
 
 
+@app.get("/api/usage")
+@require_role("lead")
+def usage():
+    """What the model is costing: today against the cap, by day, by step,
+    and the conversations that spent the most."""
+    return jsonify({"ok": True, **metering.summary()})
+
+
 @app.get("/api/gaps")
+@require_role("lead")
 def knowledge_gaps():
     """Every question our documentation could not answer, most asked first."""
     grouped = {}
@@ -1356,6 +1588,7 @@ def knowledge_gaps():
 
 
 @app.get("/api/export.json")
+@require_role("admin")
 def export_json():
     """Everything, in the exact shape cases.json always had.
 
@@ -1373,6 +1606,7 @@ def export_json():
 
 
 @app.get("/api/cases.csv")
+@require_role("admin")
 def export_csv():
     """Download the cases as a spreadsheet.
 
@@ -1423,9 +1657,15 @@ def export_csv():
 
 
 @app.get("/api/cases/<case_id>")
+@require_role("agent")
 def one_case(case_id):
     for case in load_cases():
         if case.get("id") == case_id:
+            if not may_see_case(case):
+                # 404, not 403. Telling an agent a case exists but is not
+                # theirs still tells them it exists.
+                return jsonify({"ok": False, "error": "No such case."}), 404
+            case = dict(case, usage=metering.for_case(case_id))
             return jsonify({"ok": True, "case": case})
     return jsonify({"ok": False, "error": "No such case."}), 404
 
@@ -1465,7 +1705,90 @@ def who_has_the_port(port):
     return "another program"
 
 
+# ==========================================================================
+# Account management from the command line
+# ==========================================================================
+def run_cli(argv):
+    """`python3 app/server.py <command>` for the account commands.
+
+    Accounts are deliberately not creatable through the web app: an app that
+    can mint its own admin is one request away from not having roles at all.
+    """
+    import getpass
+
+    command = argv[0]
+    init_db()
+
+    if command == "--list-users":
+        users = auth.list_users()
+        if not users:
+            print("\n  No accounts yet. The first one is created on startup.\n")
+            return 0
+        print()
+        print(f"  {'USERNAME':<16}{'ROLE':<8}{'ACTIVE':<9}{'LAST SIGNED IN'}")
+        print("  " + "-" * 58)
+        for u in users:
+            state = "locked" if u["locked"] else ("yes" if u["active"] else "no")
+            print(f"  {u['username']:<16}{u['role']:<8}{state:<9}"
+                  f"{u['last_login_at'] or 'never'}")
+        print()
+        return 0
+
+    if command in ("--add-user", "--passwd", "--disable-user", "--enable-user"):
+        username = argv[1] if len(argv) > 1 else input("  username: ").strip()
+
+        try:
+            if command == "--disable-user":
+                auth.set_active(username, False)
+                print(f"\n  {username} can no longer sign in.\n")
+                return 0
+
+            if command == "--enable-user":
+                auth.set_active(username, True)
+                print(f"\n  {username} can sign in again.\n")
+                return 0
+
+            if command == "--add-user":
+                role = argv[2] if len(argv) > 2 else ""
+                while role not in auth.ROLES:
+                    print("\n  Roles: " + ", ".join(
+                        f"{r} ({auth.ROLE_SUMMARY[r]})" for r in auth.ROLES))
+                    role = input("  role: ").strip().lower()
+
+            password = getpass.getpass("  password (min 8 chars): ")
+            if password != getpass.getpass("  again: "):
+                print("\n  Those did not match.\n")
+                return 1
+
+            if command == "--add-user":
+                auth.create_user(username, password, role)
+                print(f"\n  Created {username} as {role}.\n")
+            else:
+                auth.set_password(username, password)
+                print(f"\n  Password changed for {username}.\n")
+            return 0
+
+        except ValueError as problem:
+            print(f"\n  {problem}\n")
+            return 1
+
+    print(f"\n  Unknown command: {command}")
+    print("""
+  Account commands:
+      --list-users
+      --add-user [username] [agent|lead|admin]
+      --passwd [username]
+      --disable-user [username]
+      --enable-user [username]
+""")
+    return 1
+
+
 if __name__ == "__main__":
+
+    if len(sys.argv) > 1 and sys.argv[1].startswith("--"):
+        raise SystemExit(run_cli(sys.argv[1:]))
+
 
     # Port 5000 is taken by AirPlay Receiver on macOS, so we start at 5001.
     # Override with:  PORT=8080 python3 app/server.py
@@ -1479,6 +1802,12 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     imported = migrate_from_json()
+
+    # Cookie settings and the signing key, then the first admin if the user
+    # table is empty. Both need the database, so they come after the migrate.
+    auth.harden(app, local_only=True)
+    seeded = auth.ensure_seed_admin()
+
     key_file = coach_core.find_key_file()
     saved = load_cases()
 
@@ -1498,8 +1827,31 @@ if __name__ == "__main__":
               f"({who_has_the_port(preferred)}), using {port} instead")
         print("             to reclaim it:  pkill -f app/server.py")
 
+    print(f"  accounts : {auth.user_count()} "
+          f"(python3 app/server.py --list-users)")
     print(f"  console  : http://127.0.0.1:{port}")
     print(f"  dashboard: http://127.0.0.1:{port}/dashboard")
+
+    if seeded:
+        username, generated = seeded
+        print()
+        print("  " + "=" * 58)
+        print("  FIRST RUN -- an admin account has been created.")
+        print(f"      username: {username}")
+        if generated:
+            print(f"      password: {generated}")
+            print()
+            print("  This password is shown once and is not recoverable -- only")
+            print("  its hash is stored. Write it down now. To change it:")
+            print("      python3 app/server.py --passwd " + username)
+        else:
+            print("      password: the one in ADMIN_PASSWORD")
+        print()
+        print("  Then add the people who will actually use this:")
+        print("      python3 app/server.py --add-user priya agent")
+        print("      python3 app/server.py --add-user ravi lead")
+        print("  " + "=" * 58)
+
     print()
 
     app.run(host="127.0.0.1", port=port, debug=False)

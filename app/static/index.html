@@ -345,6 +345,19 @@ textarea::placeholder{color:var(--ink-3)}
 @media (max-width:1020px){
   .shell{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;overflow:auto}
 }
+
+/* ---------- signed-in user ---------- */
+.me{display:flex;align-items:center;gap:9px;padding:4px 5px 4px 4px;
+  border:1px solid var(--line);border-radius:999px;background:var(--surface-2)}
+.me .av{width:26px;height:26px;flex:0 0 26px;border-radius:50%;display:grid;
+  place-items:center;font-size:11px;font-weight:800;color:#fff;letter-spacing:-.02em;
+  background:linear-gradient(140deg,#FF6B3D,var(--brand) 60%,#D8401F)}
+.me .mn{font-size:12.5px;font-weight:650;letter-spacing:-.01em;line-height:1.2}
+.me .mr{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin-top:1px}
+.me .out{width:26px;height:26px;border:0;border-radius:50%;background:transparent;
+  color:var(--ink-3);cursor:pointer;font-size:13px;line-height:1;transition:.15s}
+.me .out:hover{background:var(--surface-3);color:var(--brand)}
 </style>
 </head>
 <body>
@@ -367,7 +380,15 @@ textarea::placeholder{color:var(--ink-3)}
   </div>
   <div class="nav">
     <a href="/" class="on">Console</a>
-    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard" data-needs="see_dashboard" hidden>Dashboard</a>
+  </div>
+  <div class="me" id="me" hidden>
+    <span class="av" id="meAv">?</span>
+    <span>
+      <span class="mn" id="meName">—</span>
+      <span class="mr" id="meRole">—</span>
+    </span>
+    <button class="out" id="signOut" title="Sign out">⏻</button>
   </div>
   <button class="btn" id="seedBtn">Load demo</button>
   <button class="btn" id="newBtn">New case</button>
@@ -465,7 +486,8 @@ textarea::placeholder{color:var(--ink-3)}
         <button role="tab" id="tabAgent" aria-selected="false">Agent</button>
       </div>
       <span class="cost" id="costHint">analyses, looks up and drafts a reply</span>
-      <label class="approve" title="Let the coach actually carry out refunds and resets">
+      <label class="approve" data-needs="allow_writes" hidden
+             title="Let the coach actually carry out refunds and resets">
         <input type="checkbox" id="allowWrites"> allow actions
       </label>
       <span class="lang" id="langPick" hidden role="group" aria-label="Speech language">
@@ -492,6 +514,43 @@ textarea::placeholder{color:var(--ink-3)}
 
 <script>
 const $ = id => document.getElementById(id);
+
+/* ---------------- who is signed in ----------------
+   Every fetch in these pages goes through guard(), so a session that has
+   expired lands the user back on the login page instead of leaving them
+   staring at a screen that has quietly stopped updating. */
+function guard(res){
+  if(res.status === 401){ location.href = "/login?next=" + location.pathname; }
+  return res;
+}
+const _fetch = window.fetch;
+window.fetch = (...args) => _fetch(...args).then(guard);
+
+async function loadMe(){
+  let d;
+  try{ d = await (await fetch("/api/me")).json(); }catch(e){ return null; }
+  if(!d || !d.ok) return null;
+
+  const u = d.user;
+  document.getElementById("meName").textContent = u.display_name;
+  document.getElementById("meRole").textContent = u.role;
+  document.getElementById("meAv").textContent =
+    (u.display_name || u.username).trim()[0].toUpperCase();
+  document.getElementById("me").hidden = false;
+
+  // Never show a control the role cannot use -- a button that only ever
+  // returns 403 is worse than no button.
+  document.querySelectorAll("[data-needs]").forEach(el => {
+    el.hidden = !u["can_" + el.dataset.needs];
+  });
+  return u;
+}
+
+document.getElementById("signOut").onclick = async () => {
+  await fetch("/api/logout", {method: "POST"}).catch(() => {});
+  location.href = "/login";
+};
+
 let speaker = "customer", busy = false;
 
 const DEMO = [
@@ -980,6 +1039,8 @@ function useFaq(faq){
 
 /* ---------------- boot ---------------- */
 (async () => {
+  await loadMe();          // role decides which controls exist
+
   try{
     const h = await (await fetch("/api/health")).json();
     $("modelChip").textContent = h.model;

@@ -22,6 +22,43 @@ from google.genai import types
 # It lives HERE, in the cell nothing can work without, so it is always defined
 # even if you skip Step 2 or jump straight to Part 2 after a kernel restart.
 
+# ---- Token metering ----
+# Every Gemini call reports how many tokens it actually used. That number is
+# the only honest basis for "what did this conversation cost", so it is
+# captured at the one place every call passes through rather than estimated
+# from the length of the prompt afterwards.
+#
+# The engine does not store it or price it -- it just announces it. The app
+# sets USAGE_HOOK to something that writes a row; the notebook leaves it None
+# and nothing happens. Metering policy stays out of the coaching engine.
+USAGE_HOOK = None
+
+
+def report_usage(operation, model, response=None, tokens=None):
+    """Announce the token cost of one API call.
+
+    `response` is a Gemini response whose usage_metadata we read. Pass
+    `tokens` instead for an API that reports differently, as embeddings do.
+    Never raises: metering must not be able to break a customer conversation.
+    """
+    if USAGE_HOOK is None:
+        return
+
+    try:
+        if tokens is None:
+            meta = getattr(response, "usage_metadata", None)
+            tokens = {
+                "prompt": getattr(meta, "prompt_token_count", 0) or 0,
+                "output": getattr(meta, "candidates_token_count", 0) or 0,
+                "cached": getattr(meta, "cached_content_token_count", 0) or 0,
+            }
+        USAGE_HOOK({"operation": operation, "model": model, **tokens})
+    except Exception:
+        # A metering failure is never worth losing the reply over.
+        pass
+
+
+
 # File names we accept for the key file, tried in this order.
 KEY_FILE_NAMES = [
     "gemini_api_key.txt",
@@ -365,10 +402,25 @@ def _embedder():
 
 def embed(texts):
     """Turn a list of strings into a list of vectors, in ONE API call."""
+    texts = list(texts)
     response = _embedder().models.embed_content(
         model=EMBED_MODEL,
-        contents=list(texts),
+        contents=texts,
     )
+
+    # Embeddings are billed too, and every customer message is embedded to
+    # search the knowledge base -- so leaving them out would understate what
+    # a conversation costs. The embeddings API reports usage differently from
+    # generation, and older versions not at all, so fall back to a token
+    # estimate rather than silently recording zero.
+    meta = getattr(response, "usage_metadata", None)
+    counted = getattr(meta, "total_token_count", None) if meta else None
+    if not counted:
+        counted = sum(max(1, len(t) // 4) for t in texts)
+
+    report_usage("embed", EMBED_MODEL,
+                 tokens={"prompt": counted, "output": 0, "cached": 0})
+
     return [item.values for item in response.embeddings]
 
 
@@ -905,13 +957,18 @@ class AICoach:
     # latency and the quota spent before we give up.
     FATAL = ["400", "INVALID_ARGUMENT", "401", "403", "PERMISSION_DENIED"]
 
-    def _call_model(self, contents, config=None, max_attempts: int = 3):
+    def _call_model(self, contents, config=None, max_attempts: int = 3,
+                    operation="generate"):
         """One request to Gemini, with retries and model fallback.
 
         Every call goes through here -- plain text, structured JSON and tool
         calling alike. Tool calling in particular has a tighter free-tier
         limit than ordinary generation, so it needs this even more than the
         others do.
+
+        Because everything funnels through this one method, it is also where
+        token usage is reported from: one place to read, and no way for a new
+        kind of call to be added later and quietly escape metering.
         """
         models_to_try = [self.model]
         for name in self.FALLBACK_MODELS:
@@ -929,6 +986,7 @@ class AICoach:
                         config=config,
                     )
                     self.last_model_used = model_name
+                    report_usage(operation, model_name, response)
                     return response
 
                 except Exception as error:
@@ -950,6 +1008,11 @@ class AICoach:
             f"{', '.join(models_to_try)}. Last problem -> {last_problem}"
         )
 
+    # What the coach is currently doing, so metered tokens can be attributed
+    # to a step -- analysing, scoring, drafting -- rather than landing in one
+    # undifferentiated pile. Set by the public methods below.
+    _operation = "generate"
+
     def _ask_model(
         self,
         prompt: str,
@@ -970,7 +1033,8 @@ class AICoach:
                 response_schema=schema,
             )
 
-        response = self._call_model(prompt, config, max_attempts)
+        response = self._call_model(prompt, config, max_attempts,
+                                    operation=self._operation)
 
         # response.text is None when the model returned no text at all -- for
         # example when a safety filter blocked the answer.
@@ -1034,6 +1098,8 @@ class AICoach:
         is the whole thing we care about. So we hand it the transcript and let
         it judge the trajectory directly, including a 0-100 frustration score.
         """
+        self._operation = "analyse"
+
 
         # The whole conversation, ending with the message we are judging.
         turns = list(conversation_history or [])
@@ -1096,6 +1162,8 @@ The shape of your answer is fixed by the response schema, so just fill it in.
         customer_message: str,
         agent_message: str
     ) -> CoachingFeedback:
+
+        self._operation = "score"
 
         redactor, (customer_message, agent_message) = self._clean(
             customer_message, agent_message)
@@ -1174,6 +1242,8 @@ The shape of your answer is fixed by the response schema, so just fill it in.
         `send_password_reset` are recorded as REQUESTED and left unrun until
         a person approves them.
         """
+        self._operation = "lookup"
+
         turns = list(conversation_history or [])
         if not turns or turns[-1].text != customer_message:
             turns.append(Message(speaker="customer", text=customer_message))
@@ -1282,6 +1352,7 @@ rather than generalities. Rules:
         analysis: Optional[dict] = None,
         facts: Optional[list] = None
     ) -> str:
+        self._operation = "draft"
 
         # ---- 1. The conversation, written out exactly ONCE ----
         #

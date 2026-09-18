@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Support Coach</title>
+<style>
+:root{
+  --bg:#F5F4F1; --surface:#FFFFFF; --surface-2:#FAFAF8; --surface-3:#F2F1ED;
+  --ink:#16181C; --ink-2:#5A6069; --ink-3:#8B929B;
+  --line:#EAE8E3; --line-2:#E0DDD6;
+  --brand:#EF4E2B; --brand-600:#D8401F; --brand-bg:#FEF0EC;
+  --green:#0B8A4B; --green-bg:#E7F5EC;
+  --red:#D6382F; --red-bg:#FCEDEB;
+  --night:#17130F;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+  line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+.split{min-height:100vh;display:grid;grid-template-columns:1.06fr .94fr}
+
+/* ==================== left: what this thing does ==================== */
+.story{position:relative;overflow:hidden;padding:46px 52px;color:#fff;
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(1000px 520px at 12% 8%, rgba(239,78,43,.30), transparent 62%),
+    radial-gradient(760px 520px at 88% 96%, rgba(255,138,92,.16), transparent 58%),
+    linear-gradient(158deg,#2A1D17 0%, var(--night) 52%, #0E0C0A 100%);
+}
+/* a soft grid, so the panel has texture instead of a flat wash */
+.story::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:52px 52px;
+  mask-image:radial-gradient(760px 620px at 26% 32%,#000,transparent 76%);
+  -webkit-mask-image:radial-gradient(760px 620px at 26% 32%,#000,transparent 76%)}
+.story > *{position:relative}
+
+.mark{display:flex;align-items:center;gap:12px;margin-bottom:auto}
+.mark .logo{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+  color:#fff;font-weight:800;font-size:15px;letter-spacing:-.02em;
+  background:linear-gradient(140deg,#FF7A52,var(--brand) 58%,#C9381A);
+  box-shadow:0 6px 20px rgba(239,78,43,.46)}
+.mark .wm{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.mark .wt{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(255,255,255,.42);margin-top:2px}
+
+.pitch{margin:40px 0 26px;max-width:460px}
+.kicker{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 8px;
+  border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:#FFC4AF;
+  background:rgba(239,78,43,.15);border:1px solid rgba(239,78,43,.3)}
+.kicker i{width:5px;height:5px;border-radius:50%;background:#FF8A5C;display:block;
+  box-shadow:0 0 0 3px rgba(255,138,92,.22)}
+.pitch h1{font-size:35px;font-weight:800;letter-spacing:-.035em;line-height:1.12;
+  margin:18px 0 13px}
+.pitch h1 em{font-style:normal;
+  background:linear-gradient(96deg,#FF9269,#FF6136 62%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.pitch p{font-size:14px;line-height:1.72;color:rgba(255,255,255,.62);max-width:420px}
+
+/* the proof: one sentence, two readings */
+.proof{max-width:470px;border-radius:18px;padding:18px 19px;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.proof .lbl{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:rgba(255,255,255,.4)}
+.proof .said{font-size:17px;font-weight:650;letter-spacing:-.02em;margin:9px 0 16px;
+  color:#fff}
+.proof .said::before,.proof .said::after{content:'"';color:rgba(255,255,255,.3)}
+
+.read{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;
+  margin-bottom:8px;border:1px solid transparent}
+.read:last-child{margin-bottom:0}
+.read.bad{background:rgba(214,56,47,.13);border-color:rgba(255,120,110,.22)}
+.read.good{background:rgba(11,138,75,.15);border-color:rgba(74,214,145,.26)}
+.read .ic{width:22px;height:22px;flex:0 0 22px;border-radius:7px;display:grid;
+  place-items:center;font-size:11px;font-weight:800}
+.read.bad .ic{background:rgba(255,120,110,.2);color:#FFA9A2}
+.read.good .ic{background:rgba(74,214,145,.2);color:#7BE3AF}
+.read .who{flex:1;min-width:0;font-size:12px;color:rgba(255,255,255,.6)}
+.read .verdict{font-family:var(--mono);font-size:11.5px;font-weight:700;
+  letter-spacing:-.01em;white-space:nowrap}
+.read.bad .verdict{color:#FFA9A2}
+.read.good .verdict{color:#7BE3AF}
+
+.stats{display:flex;gap:30px;margin-top:auto;padding-top:34px;flex-wrap:wrap}
+.stat .n{font-size:21px;font-weight:800;letter-spacing:-.03em}
+.stat .c{font-size:11px;color:rgba(255,255,255,.42);margin-top:2px}
+
+/* ==================== right: the form ==================== */
+.pane{display:grid;place-items:center;padding:40px 30px;background:var(--bg)}
+.form{width:100%;max-width:372px}
+
+.crest{display:none;align-items:center;gap:11px;margin-bottom:26px}
+.crest .logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;
+  color:#fff;font-weight:800;font-size:14px;
+  background:linear-gradient(140deg,#FF7A52,var(--brand) 58%,#C9381A);
+  box-shadow:0 4px 14px rgba(239,78,43,.34)}
+.crest .wm{font-size:15.5px;font-weight:700;letter-spacing:-.02em}
+
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--brand-600)}
+h2{font-size:26px;font-weight:800;letter-spacing:-.035em;margin:9px 0 7px}
+.sub{font-size:13.5px;color:var(--ink-3);line-height:1.65;margin-bottom:26px}
+
+.err{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:12px;
+  background:var(--red-bg);border:1px solid #F3C9C4;color:#9E2B24;font-size:12.5px;
+  line-height:1.55;margin-bottom:17px;animation:shake .34s cubic-bezier(.36,.07,.19,.97)}
+.err .ic{flex:0 0 auto;font-size:13px;line-height:1.35}
+@keyframes shake{
+  10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)} 40%,60%{transform:translateX(4px)}}
+
+.field{margin-bottom:15px}
+label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+.wrap{position:relative;display:flex;align-items:center}
+.wrap .pre{position:absolute;left:13px;width:17px;height:17px;pointer-events:none;
+  color:var(--ink-3);opacity:.62;transition:.16s}
+.wrap:focus-within .pre{color:var(--brand);opacity:1}
+.wrap .pre svg{display:block;width:17px;height:17px}
+input{width:100%;height:46px;padding:0 13px 0 39px;border-radius:12px;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--ink);
+  font-family:var(--sans);font-size:14.5px;outline:none;transition:.16s}
+input:focus{border-color:#F0A88F;box-shadow:0 0 0 4px rgba(239,78,43,.12)}
+input::placeholder{color:#B9BEC5}
+#password{padding-right:46px}
+.peek{position:absolute;right:7px;width:32px;height:32px;border:0;border-radius:9px;
+  background:transparent;color:var(--ink-3);cursor:pointer;
+  display:grid;place-items:center;transition:.15s}
+.peek:hover{background:var(--surface-3);color:var(--ink)}
+.peek svg{display:block;width:17px;height:17px}
+
+.caps{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:11.5px;
+  color:#A66A00}
+.caps b{font-family:var(--mono);font-size:10px;background:#FDF2E0;border:1px solid #F5E2C2;
+  border-radius:5px;padding:1px 5px;font-weight:700}
+
+button[type=submit]{width:100%;height:47px;border:0;border-radius:12px;cursor:pointer;
+  background:linear-gradient(160deg,#FF7A52,var(--brand) 70%);color:#fff;
+  font-family:var(--sans);font-size:14.5px;font-weight:700;letter-spacing:-.01em;
+  box-shadow:0 4px 16px rgba(239,78,43,.32);transition:.16s;margin-top:10px;
+  display:flex;align-items:center;justify-content:center;gap:9px}
+button[type=submit]:hover:not(:disabled){filter:brightness(1.06);
+  box-shadow:0 6px 20px rgba(239,78,43,.4);transform:translateY(-1px)}
+button[type=submit]:active:not(:disabled){transform:translateY(0) scale(.99)}
+button[type=submit]:disabled{opacity:.68;cursor:not-allowed;box-shadow:none;
+  transform:none;filter:none}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;animation:turn .62s linear infinite}
+@keyframes turn{to{transform:rotate(360deg)}}
+
+.hint{margin-top:24px;padding-top:17px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-3);line-height:1.7}
+.hint code{font-family:var(--mono);font-size:11px;background:var(--surface-3);
+  border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--ink-2)}
+
+/* ==================== narrow ==================== */
+@media (max-width:1000px){
+  .split{grid-template-columns:1fr}
+  .story{display:none}
+  .crest{display:flex}
+  .pane{min-height:100vh;align-items:center}
+}
+@media (max-width:420px){
+  .pane{padding:28px 20px}
+  h2{font-size:23px}
+}
+@media (prefers-reduced-motion:reduce){
+  .err{animation:none} .spin{animation-duration:2s}
+  button[type=submit]:hover:not(:disabled){transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="split">
+
+  <!-- ---------------- the pitch ---------------- -->
+  <section class="story">
+    <div class="mark">
+      <div class="logo">SC</div>
+      <div>
+        <div class="wm">Support Coach</div>
+        <div class="wt">Built for Bharat</div>
+      </div>
+    </div>
+
+    <div class="pitch">
+      <span class="kicker"><i></i>Real-time coaching</span>
+      <h1>Reads the customer,<br>not just the <em>words</em>.</h1>
+      <p>
+        Every message is judged against the whole conversation — so a customer
+        quietly repeating themselves for the third time reads as what they
+        are, not as calm.
+      </p>
+    </div>
+
+    <div class="proof">
+      <div class="lbl">A real customer message</div>
+      <div class="said">bahut ganda service hai</div>
+
+      <div class="read bad">
+        <span class="ic">✕</span>
+        <span class="who">Standard sentiment model</span>
+        <span class="verdict">POSITIVE · 49.8%</span>
+      </div>
+      <div class="read good">
+        <span class="ic">✓</span>
+        <span class="who">Support Coach</span>
+        <span class="verdict">negative · 85/100 · high</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">12/12</div>
+        <div class="c">paraphrased questions matched</div></div>
+      <div class="stat"><div class="n">15 min</div>
+        <div class="c">first-reply target, high risk</div></div>
+      <div class="stat"><div class="n">0</div>
+        <div class="c">phone numbers sent to the model</div></div>
+    </div>
+  </section>
+
+  <!-- ---------------- the form ---------------- -->
+  <section class="pane">
+    <form class="form" id="form" autocomplete="on">
+
+      <div class="crest">
+        <div class="logo">SC</div>
+        <div class="wm">Support Coach</div>
+      </div>
+
+      <div class="eyebrow">Sign in</div>
+      <h2>Welcome back</h2>
+      <p class="sub">
+        Customer transcripts are behind this. Use the account your team lead
+        set up for you.
+      </p>
+
+      <div class="err" id="err" hidden>
+        <span class="ic">⚠</span><span id="errText"></span>
+      </div>
+
+      <div class="field">
+        <label for="username">Username</label>
+        <div class="wrap">
+          <svg class="pre" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input id="username" name="username" autocomplete="username"
+                 autocapitalize="none" spellcheck="false" placeholder="priya"
+                 required autofocus>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="wrap">
+          <svg class="pre" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input id="password" name="password" type="password"
+                 autocomplete="current-password" placeholder="••••••••" required>
+          <button class="peek" id="peek" type="button"
+                  aria-label="Show password" title="Show password"></button>
+        </div>
+        <div class="caps" id="caps" hidden>
+          <span>⇪</span><span><b>Caps Lock</b> is on</span>
+        </div>
+      </div>
+
+      <button type="submit" id="submit">
+        <span class="spin" id="spin" hidden></span>
+        <span id="submitText">Sign in</span>
+      </button>
+
+      <div class="hint">
+        No account yet? Accounts are created from the command line, not here —
+        <code>python3 app/server.py --add-user</code>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function busy(on){
+  $("submit").disabled = on;
+  $("spin").hidden = !on;
+  $("submitText").textContent = on ? "Signing in…" : "Sign in";
+}
+
+function fail(message){
+  $("errText").textContent = message;
+  $("err").hidden = false;
+  busy(false);
+  $("password").value = "";
+  $("password").focus();
+}
+
+// Show/hide, so a mistyped password can be checked rather than guessed at.
+const EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/>
+  <circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10.6 6.2A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a18 18 0 0 1-2.7 3.6"/>
+  <path d="M6.6 6.7A18 18 0 0 0 2 13s3.6 7 10 7a9.6 9.6 0 0 0 4.6-1.1"/>
+  <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="m2 2 20 20"/></svg>`;
+
+$("peek").innerHTML = EYE;
+$("peek").onclick = () => {
+  const shown = $("password").type === "text";
+  $("password").type = shown ? "password" : "text";
+  $("peek").innerHTML = shown ? EYE : EYE_OFF;
+  $("peek").setAttribute("aria-label", shown ? "Show password" : "Hide password");
+  $("password").focus();
+};
+
+// Caps Lock is the single commonest reason a correct password is refused.
+// Assigned as a property rather than through addEventListener so that the
+// handler is inspectable -- `password.onkeydown` either is a function or is
+// not, which is testable; a listener added with addEventListener is not.
+function showCaps(e){
+  const on = typeof e.getModifierState === "function"
+             && e.getModifierState("CapsLock");
+  $("caps").hidden = !on;
+}
+
+$("password").onkeydown = showCaps;
+$("password").onkeyup = showCaps;
+$("password").onblur = () => { $("caps").hidden = true; };
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("err").hidden = true;
+  busy(true);
+
+  let data;
+  try{
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        username: $("username").value.trim(),
+        password: $("password").value,
+        next: new URLSearchParams(location.search).get("next") || "",
+      }),
+    });
+    data = await res.json();
+  }catch(err){
+    return fail("Could not reach the server. Is it still running?");
+  }
+
+  if(!data.ok) return fail(data.error || "Sign in failed.");
+
+  // The server decides, having checked both that the destination is a path
+  // on this site and that this role can actually open it.
+  location.href = data.next;
+});
+</script>
+</body>
+</html>

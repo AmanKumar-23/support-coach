@@ -1,7 +1,7 @@
 # The web app. Python 3.12+.
 flask>=3.0
 flask-login>=0.6          # accounts, roles and session cookies -- see app/auth.py
-google-genai>=2.0
+google-genai>=2.23.0
 
 # Part 1 of the notebook additionally needs transformers + torch.
 # The notebook installs those itself in Step 1, so they are deliberately

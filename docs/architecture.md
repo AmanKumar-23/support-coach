@@ -19,6 +19,10 @@ app/coach_core.py                   generated — never edited by hand
             │   import
             ▼
 app/server.py                       Flask: routes, SLA, analytics, storage
+            │
+            │   every route guarded by
+            ▼
+app/auth.py                         accounts, roles, sessions
 ```
 
 The notebook carries the reasoning as well as the code: the Hinglish comparison, the measured
@@ -160,12 +164,106 @@ library, which keeps the whole front end two files a contributor can read end to
 
 ---
 
+## Access control
+
+Every page and every API route is behind a login and a role. `app/auth.py` holds it; `server.py`
+only decorates.
+
+### Roles are ranked, not enumerated
+
+```
+agent  (1)  ──►  lead  (2)  ──►  admin  (3)
+```
+
+Each role is a superset of the one below, so a guard asks "at least `lead`?" rather than "in this
+set of roles?". A set would let someone hold `admin` without holding `lead`, and every check
+would have to remember to list both. Ranking makes that gap unrepresentable.
+
+The whole policy is one dict in `server.py` — sixteen routes, each with the role it needs —
+rather than a decorator argument scattered down nine hundred lines. It can be read, and audited,
+in one screen.
+
+### Two decisions worth explaining
+
+**A case an agent does not own answers `404`, not `403`.** Telling somebody a case exists but is
+not theirs still tells them it exists, along with how many there are and roughly when they were
+opened. The dashboard roles see everything, so nothing is hidden from the people who need it.
+
+**Accounts cannot be created through the web app.** They are a command-line operation. An
+application that can mint its own admin is one request-handling bug away from having no roles at
+all, and nothing in this product needs self-service sign-up.
+
+### What the login does not cover
+
+Session cookies are `HttpOnly` and `SameSite=Lax`. Lax is what stops a cross-site POST carrying
+the cookie, which is the practical CSRF defence here — but it is not the same as per-request CSRF
+tokens, and those are the next thing to add.
+
+---
+
+## Metering
+
+Every Gemini call funnels through `AICoach._call_model()`. That is not a
+coincidence -- it is the reason the retry and fallback logic works -- and it
+makes it the one place token usage can be read from with no way for a new kind
+of call to be added later and quietly escape it.
+
+```
+AICoach._call_model()  ──►  coach_core.report_usage()  ──►  USAGE_HOOK
+                                                              │
+                                              app/metering.py │  price it,
+                                                              ▼  store it
+                                                        usage table
+```
+
+The engine **announces**; it does not decide. `report_usage()` reads the token
+counts off the response and hands them to whatever `USAGE_HOOK` is set to. The
+notebook leaves it `None` and nothing happens; the app points it at
+`metering.record`. So pricing, budgets and storage never end up inside the
+coaching logic, and the notebook keeps running unchanged.
+
+### Measured versus derived
+
+Tokens come from the API's own `usage_metadata`. They are exact, and they are
+the number to trust. Rupees are those tokens multiplied by a rate that is
+**configuration** -- prices change, and the shipped defaults are placeholders.
+The two are kept visibly separate: the dashboard labels every rupee figure
+"estimated rates" until the rates are set explicitly.
+
+### Attribution without threading a parameter
+
+A request opens a billing account in a `ContextVar` before doing anything, and
+names the case as soon as it knows which one it is. `record()` reads that
+account at the moment a call completes. A `ContextVar` rather than a global
+because Flask serves requests on many threads and two agents mid-conversation
+must not be billed to each other -- and a mutable account rather than a fixed
+pair because a brand new conversation has no id until part way through.
+
+### Where the ceilings sit
+
+The caps are checked at the **start of a turn**, in the route, not before each
+individual call. Aborting half way through a tool-calling loop would leave the
+customer with a reply quoting a lookup that never finished. One turn may
+overshoot slightly; the next is refused with a 429.
+
+---
+
 ## Deliberate limits
 
 This is a coursework and demonstration project, and it is worth being explicit about what it is
 not:
 
-- **No authentication or authorisation.** `server.py` binds to `127.0.0.1` on purpose.
+- **One live conversation for the whole server.** `LiveSession` is a module-level singleton, so
+  two signed-in agents share a console. Roles decide what each may *reach*; they do not yet give
+  each agent their own session. That is the next structural change, and the `owner` column on
+  `cases` exists to meet it.
+- **No per-request CSRF tokens.** `SameSite=Lax` cookies cover the realistic attack; tokens
+  cover the rest.
+- **The shipped token prices are placeholders.** Token counts are measured and correct; the
+  rupee figures are only as good as the rates in `app/metering.py`, and the UI says so until
+  they are set.
+- **The caps are per process.** They read a shared SQLite table, so several workers on one
+  machine stay consistent, but nothing coordinates two machines.
 - **The back office is a mock.** `orders.json` is a file, not an order management system.
 - **Thresholds come from a small sample.** `0.58` and `0.65` were measured, and the measurements
   are in the notebook, but the sample is small enough that they should be re-measured before

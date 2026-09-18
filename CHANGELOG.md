@@ -21,8 +21,45 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Accounts and roles.** Every page and every API route now sits behind a login and a role —
+  `agent` (console, own cases), `lead` (+ dashboard, + the write-action gate), `admin`
+  (+ bulk exports). Until now anyone who could reach the port could read every saved customer
+  transcript, which sat badly next to a product that masks personal data before it reaches the
+  model. See [`app/auth.py`](app/auth.py).
+- Passwords stored as scrypt hashes, a fifteen-minute lockout after five failed attempts, and
+  `HttpOnly` / `SameSite=Lax` session cookies. The cookie signing key is generated once and kept
+  in the database, so a restart no longer signs everyone out.
+- Account management from the command line — `--list-users`, `--add-user`, `--passwd`,
+  `--disable-user`, `--enable-user`. Accounts cannot be created through the web app on purpose.
+- Cases record the agent who opened them (`owner`), and an agent can only open their own or an
+  unclaimed one. Cases from before this change are unowned and claimed by whoever opens them.
+- A sign-in page, a "signed in but wrong role" page, and a user chip with sign-out in both front
+  ends. Controls a role cannot use are hidden rather than left to fail with a 403.
+- 47 tests covering role boundaries, lockout, ownership and the post-login redirect.
 - Regression tests for the function-calling loop, including an assertion that every turn carries
   a role the API accepts.
+
+- **Token metering and cost per conversation.** Every Gemini call now reports its own token
+  counts, which are attributed to a case, an agent and a step (analyse, look up, draft, score,
+  embed) and priced. The dashboard gained a **Cost** section, and each case shows its own bill.
+  Counting API calls was the wrong unit: analysing one short message and drafting a grounded
+  reply are both "one call" and differ by an order of magnitude. See [`app/metering.py`](app/metering.py).
+- **Daily caps and a per-agent rate limit.** `DAILY_TOKEN_CAP`, `DAILY_COST_CAP_INR` and
+  `RATE_LIMIT_CALLS_PER_MIN` refuse new work with a 429 and a `Retry-After` *before* the model
+  is called. Any of them set to `0` is switched off.
+- 26 tests for metering, pricing, the ceilings and the engine's usage hook.
+
+### Changed
+
+- The engine gained a `USAGE_HOOK` (notebook cells 1, 17 and 28). It announces the token cost
+  of each call and knows nothing about storage, pricing or budgets — metering policy stays in
+  the app, not in the coaching logic.
+- A new case is given its id *before* the first model call, so the opening turn of every
+  conversation is billed to a case instead of to nothing.
+- `/api/health` stays public so a container probe can reach it, but now tells an anonymous
+  caller only that the process is up — the key path and model name need a login.
+- The `cases` table gained an `owner` column, applied to an existing database by a guarded
+  migration on startup.
 
 ---
 

@@ -61,6 +61,8 @@ As a conversation happens, every customer turn is analysed and every agent turn 
 | ⚡ **Auto-resolution** | A confident KB match (≥ `0.65`) on a low-risk case answers the customer directly and closes it. |
 | ⏱️ **SLA tracking** | Targets that vary by risk — high 15 min, medium 1 h, low 4 h — with a "breaching soon" panel. |
 | 🎙️ **Voice input** | Browser speech recognition, English or Hindi. No extra service, no extra cost. |
+| 🔐 **Accounts and roles** | Transcripts sit behind a login. `agent` gets the console and their own cases, `lead` adds the dashboard and the write-action gate, `admin` adds the exports. |
+| 💰 **Cost metering** | Every call's token count comes from the API itself, attributed to a case, an agent and a step — so you know what a conversation cost, and which step spent it. Daily token and spend caps refuse new work rather than running up a bill. |
 
 ### The dashboard
 
@@ -90,7 +92,10 @@ cp orders.example.json orders.json                   # the mock order system
 python3 app/server.py
 ```
 
-Open **<http://127.0.0.1:5001>** and press **Load demo**.
+On the first run it creates an **admin account** and prints the password once —
+copy it before the banner scrolls away.
+
+Open **<http://127.0.0.1:5001>**, sign in, and press **Load demo**.
 
 <details>
 <summary><b>Running the notebook instead</b></summary>
@@ -135,6 +140,15 @@ The API key is resolved in this order — the first one found wins.
 | `GEMINI_API_KEY` | — | Your key. **Never commit it.** |
 | `GEMINI_MODEL` | `gemini-3.5-flash` | Generation model. Falls back to `gemini-3.5-flash-lite` on a rate limit. |
 | `PORT` | `5001` | Port for the Flask app. |
+| `SECRET_KEY` | generated | Signs session cookies. Generated once and kept in the database, so a restart does not sign everyone out. |
+| `ADMIN_USERNAME` | `admin` | The first account, created on first boot only. |
+| `ADMIN_PASSWORD` | generated | Its password. Left unset, one is generated and printed once. |
+| `PRICE_IN_INR_PER_MTOK` | `25.0` | **Placeholder.** Rupees per million input tokens. |
+| `PRICE_OUT_INR_PER_MTOK` | `75.0` | **Placeholder.** Rupees per million output tokens. |
+| `PRICE_EMBED_INR_PER_MTOK` | `2.0` | **Placeholder.** Rupees per million embedding tokens. |
+| `DAILY_TOKEN_CAP` | `2000000` | Tokens per day before new work is refused. `0` disables it. |
+| `DAILY_COST_CAP_INR` | `200` | Spend per day before new work is refused. `0` disables it. |
+| `RATE_LIMIT_CALLS_PER_MIN` | `30` | Model calls per minute, per agent. `0` disables it. |
 
 ### Tuning
 
@@ -146,6 +160,69 @@ These live in the code, next to a comment explaining how each number was arrived
 | `AUTO_RESOLVE_THRESHOLD` | `0.65` | `app/server.py` | Confidence needed to answer the customer with no agent at all — deliberately higher than the threshold used merely to *show* an article. |
 | `SLA_TARGET_MINUTES` | `{high: 15, medium: 60, low: 240}` | `app/server.py` | First-response target by escalation risk. |
 | `allow_writes` | `False` | runtime toggle | Refunds and password resets are **requested, not run**, until a person approves them. |
+
+---
+
+## Accounts and roles
+
+Customer transcripts sit behind a login. Three roles, each a superset of the
+one below it:
+
+| Role | Can reach |
+|---|---|
+| `agent` | The console, and the cases they own or claim |
+| `lead` | Everything an agent has, plus the dashboard and the **write-action gate** — deciding a refund may actually be issued |
+| `admin` | Everything a lead has, plus the bulk exports and account management |
+
+Accounts are created from the command line, never through the web app — an app
+that can mint its own admin does not really have roles.
+
+```bash
+python3 app/server.py --list-users
+python3 app/server.py --add-user priya agent
+python3 app/server.py --passwd priya
+python3 app/server.py --disable-user priya
+```
+
+The first admin is seeded on first boot. Set `ADMIN_USERNAME` and
+`ADMIN_PASSWORD` to choose it yourself, or let it generate a password and print
+it once. Only the scrypt hash is stored, so a lost password is reset, not
+recovered.
+
+Five wrong passwords parks an account for fifteen minutes. `/api/health` stays
+public so a container probe can reach it, but tells an anonymous caller only
+that the process is up.
+
+---
+
+## What it costs
+
+Every Gemini call reports how many tokens it used. That number is captured at
+the one place all calls pass through, attributed to a case, an agent and a step
+— analyse, look up, draft, score, embed — and priced.
+
+**Tokens are measured and exact. Rupees are derived** from a rate table that is
+configuration, not fact. The rates shipped above are **placeholders**: they are
+the right shape and the wrong numbers, and the dashboard labels every figure
+"estimated rates" until you set the real ones.
+
+```bash
+export PRICE_IN_INR_PER_MTOK=…    # from the current Gemini price list
+export PRICE_OUT_INR_PER_MTOK=…
+```
+
+The **Cost** section of the dashboard shows today's usage against the cap,
+average cost per conversation, which step spends the most, and the priciest
+conversations. Opening any case shows that one conversation's bill broken down
+by step.
+
+### Ceilings
+
+Two daily caps and a per-agent rate limit. When one is hit, `/api/customer` and
+`/api/agent` answer **429 with a `Retry-After`** *before* calling the model —
+a cap that only reports afterwards is not a cap. They are checked at the start
+of a turn rather than before each individual call, so a turn already in flight
+finishes rather than leaving a reply quoting a lookup that never completed.
 
 ---
 
@@ -192,10 +269,14 @@ Full walkthrough: **[docs/architecture.md](docs/architecture.md)**.
 ├── app/
 │   ├── build_core.py              # notebook  ──►  coach_core.py
 │   ├── coach_core.py              # GENERATED — AICoach, KB, redaction, tools
+│   ├── auth.py                    # accounts, roles, sessions
+│   ├── metering.py                # token counting, pricing, daily caps
 │   ├── server.py                  # Flask: routes, SLA, analytics, SQLite store
 │   └── static/
 │       ├── index.html             # live console
-│       └── dashboard.html         # dashboard
+│       ├── dashboard.html         # dashboard
+│       ├── login.html             # sign in
+│       └── denied.html            # signed in, wrong role
 ├── tests/                         # pytest — runs with NO API key
 ├── docs/
 ├── .github/workflows/ci.yml       # tests · lint · notebook-sync · secret scan
@@ -216,18 +297,25 @@ pytest tests/ -v
 ```
 
 ```
-79 passed, 2 skipped
+152 passed, 2 skipped
 ```
 
 Covering redaction round-trips, SLA maths, the SQLite store and its JSON migration, the
-analytics, knowledge-base matching, the back-office tools, and the function-calling loop.
+analytics, knowledge-base matching, the back-office tools, the function-calling loop,
+what each role can and cannot reach, and the token metering and its ceilings.
 
 ---
 
 ## Security
 
-- `gemini_api_key.txt`, `app/cases.db` and `orders.json` are git-ignored — they hold secrets or
-  real transcripts. The repo ships `.example` files instead.
+- Every page and every API route is behind a login, and behind a role. The only exception is
+  `/api/health`, which a container probe has to be able to reach — and which tells an
+  anonymous caller nothing beyond "the process is up".
+- Passwords are stored as scrypt hashes. Session cookies are `HttpOnly` and `SameSite=Lax`,
+  which is what stands between a cookie-authenticated API and cross-site request forgery.
+  Per-request CSRF tokens are the stronger answer and are not implemented yet.
+- `gemini_api_key.txt`, `app/cases.db` and `orders.json` are git-ignored — they hold secrets,
+  password hashes or real transcripts. The repo ships `.example` files instead.
 - Customer text is redacted before it reaches Gemini, on both the chat and embeddings paths.
 - Write-capable tools never fire on their own: `issue_refund` and `send_password_reset` are
   recorded as *requested* and wait for a human.
